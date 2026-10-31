@@ -1,0 +1,8 @@
+{
+  "kind": "application-screenshot",
+  "source": "Local web companion at http://127.0.0.1:4317/?mode=demo",
+  "capture": "Playwright Chromium, 1440px desktop viewport, full-page screenshot",
+  "data": "Synthetic demonstration fixture, visibly labeled in the interface",
+  "scope": "Web companion only; this is not a screenshot of the native Herdr GPUI mod",
+  "generator": "No image generation; pixels captured from the running application"
+}

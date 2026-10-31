@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-31T13:15:39.490604+00:00",
+  "title": "Design System: Magpie Router",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "range-selected",
+        "value": "0 1px 3px #183f3810",
+        "purpose": "Selected white time-range segment only."
+      },
+      {
+        "name": "search-focus",
+        "value": "0 0 0 1px var(--green)",
+        "purpose": "Functional search-wrapper focus ring, paired with green border."
+      }
+    ],
+    "motion": [
+      {
+        "name": "navigation-state",
+        "value": "background .16s, color .16s",
+        "purpose": "Navigation hover and current state."
+      },
+      {
+        "name": "request-hover",
+        "value": "background .15s",
+        "purpose": "Request row background changes."
+      },
+      {
+        "name": "route-state",
+        "value": "stroke .2s, opacity .2s",
+        "purpose": "Diagram selection changes."
+      },
+      {
+        "name": "route-entry",
+        "value": "surface-in .6s cubic-bezier(.16,1,.3,1)",
+        "purpose": "Only with prefers-reduced-motion:no-preference; clip-path inset(0 0 12px 0) to inset(0), translateY(5px) to translateY(0)."
+      },
+      {
+        "name": "refresh-loading",
+        "value": "spin 1.2s linear infinite",
+        "purpose": "Loading refresh icon rotates through 360deg."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation:none!important;transition:none!important;scroll-behavior:auto!important",
+        "purpose": "Applied to all elements and pseudo-elements when prefers-reduced-motion:reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-min",
+        "value": "1450px",
+        "purpose": "min-width; wider provider column and increased vertical spacing."
+      },
+      {
+        "name": "desktop-compact-max",
+        "value": "1150px",
+        "purpose": "max-width; smaller rail, gutters, provider column, wrapping filters."
+      },
+      {
+        "name": "route-compact-max",
+        "value": "850px",
+        "purpose": "max-width; stacked route, hidden provider surface, one lower column."
+      },
+      {
+        "name": "mobile-max",
+        "value": "650px",
+        "purpose": "max-width; horizontal header navigation and wrapped controls."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Outline action",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Clear filters in an empty request result.",
+      "html": "<button class=\"ds-outline\" type=\"button\">清除筛选</button>",
+      "css": ".ds-outline{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif;color:var(--ink,#203e36);border:1px solid #d5e0d6;border-radius:4px;padding:7px 13px;font-size:11px;background:var(--paper,#fff);cursor:pointer}.ds-outline:hover{background:var(--canvas,#f1f5f2)}.ds-outline:focus-visible{outline:2px solid var(--green,#257b57);outline-offset:4px}.ds-outline:disabled{cursor:wait;opacity:.5}"
+    },
+    {
+      "name": "Time range",
+      "kind": "button",
+      "refersTo": "range-selected",
+      "description": "Compact range control; aria-pressed identifies the selected range.",
+      "html": "<div class=\"ds-range\" role=\"group\" aria-label=\"时间范围\"><button type=\"button\" aria-pressed=\"false\">15 分钟</button><button type=\"button\" aria-pressed=\"true\">1 小时</button><button type=\"button\" aria-pressed=\"false\">24 小时</button></div>",
+      "css": ".ds-range{display:inline-flex;gap:3px;background:#e8eee9;padding:3px;border-radius:5px;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif;}.ds-range button{font:inherit;font-size:11px;color:#5e7267;padding:7px 10px;border:0;background:none;border-radius:3px;white-space:nowrap;cursor:pointer}.ds-range button[aria-pressed=true]{background:white;color:var(--ink,#203e36);box-shadow:0 1px 3px #183f3810}.ds-range button:hover{color:var(--dark,#183f38)}.ds-range button:focus-visible{outline:2px solid var(--green,#257b57);outline-offset:4px}@media(max-width:650px){.ds-range button{padding:6px 12px;min-height:32px}}"
+    },
+    {
+      "name": "Request search",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Bordered wrapper owns focus; the input remains visually unboxed.",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"10.5\" cy=\"10.5\" r=\"6.5\"/><path d=\"m16 16 5 5\"/></svg><input type=\"search\" aria-label=\"搜索请求\" placeholder=\"搜索模型、分组、提供商…\" autocomplete=\"off\"></label>",
+      "css": ".ds-search{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif;display:flex;align-items:center;gap:7px;border:1px solid var(--line,#e2e9e3);border-radius:4px;padding:0 9px;background:var(--paper,#fff)}.ds-search svg{width:13px;height:13px;flex-shrink:0;fill:none;stroke:#5c6f61;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.ds-search input{font:inherit;width:100%;min-width:0;border:0;background:none;outline:0!important;font-size:12px;height:32px;color:var(--ink,#203e36);caret-color:var(--green,#257b57)}.ds-search input::placeholder{color:#5c6f61}.ds-search:focus-within{border-color:var(--green,#257b57);box-shadow:0 0 0 1px var(--green,#257b57)}"
+    },
+    {
+      "name": "Evergreen navigation",
+      "kind": "nav",
+      "refersTo": "navigation-item",
+      "description": "Desktop current and hover states, with the implemented narrow underline variant.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"主导航\"><a href=\"#overview\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1\"/></svg>路由概览</a><a href=\"#requests\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01\"/></svg>请求记录</a></nav>",
+      "css": ".ds-nav{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif;display:grid;gap:7px;padding:17px;background:var(--dark,#183f38)}.ds-nav a{display:flex;gap:12px;align-items:center;border-radius:5px;padding:12px 13px;font-size:12px;color:#bdcfc6;text-decoration:none;transition:background .16s,color .16s}.ds-nav a:hover{background:#244b42;color:#fff}.ds-nav a[aria-current=page]{background:#31564b;color:#fff}.ds-nav svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}.ds-nav a:focus-visible{outline:2px solid var(--green,#257b57);outline-offset:4px}@media(max-width:650px){.ds-nav{display:flex;gap:20px}.ds-nav a{padding:10px 0 12px;border-radius:0;gap:7px;font-size:11px;border-bottom:2px solid transparent}.ds-nav a[aria-current=page]{background:none;border-color:#b2d1b7}.ds-nav svg{width:14px;height:14px}}@media(prefers-reduced-motion:reduce){.ds-nav a{transition:none}}"
+    },
+    {
+      "name": "Data provenance badges",
+      "kind": "chip",
+      "refersTo": "source-badge",
+      "description": "Informational demo and live source labels; these are not interactive chips.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-source\">演示数据</span><span class=\"ds-source ds-source-live\">实时数据</span></div>",
+      "css": ".ds-badges{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif;display:flex;align-items:center;gap:9px}.ds-source{font-size:11px;border:1px solid #d5ded6;background:#e9eeea;color:#4e6457;padding:3px 6px;border-radius:3px;white-space:nowrap}.ds-source-live{background:#e4f0e9;color:#256546;border-color:#cedfd1}"
+    },
+    {
+      "name": "Compact route surface",
+      "kind": "card",
+      "refersTo": "surface",
+      "description": "Real compact browser graph replacement, with group tint, connecting rules, and labeled outcome.",
+      "html": "<section class=\"ds-route\" aria-label=\"当前请求的完整路径\"><h2>路由流向</h2><div class=\"ds-route-steps\"><div class=\"ds-step\"><span>请求分组</span><strong>coding</strong></div><div class=\"ds-step\"><span>实际模型</span><strong>gpt-5.4</strong></div><div class=\"ds-step\"><span>提供商</span><strong>OpenAI</strong></div><div class=\"ds-result\"><span class=\"ds-success\">成功</span><span>780 ms</span></div></div></section>",
+      "css": ".ds-route{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif;background:var(--paper,#fff);color:var(--ink,#203e36);border:1px solid var(--line,#e2e9e3);border-radius:6px;overflow:hidden}.ds-route h2{font-size:13px;font-weight:600;margin:0;padding:21px 23px 0}.ds-route-steps{padding:16px 30px 20px}.ds-step{display:grid;gap:7px;padding:13px 16px;border:1px solid var(--line,#e2e9e3);border-radius:5px;position:relative;background:#fafcfb;min-width:0}.ds-step+.ds-step{margin-top:16px}.ds-step+.ds-step:before{content:\"\";position:absolute;left:25px;top:-17px;height:16px;width:1px;background:var(--green,#257b57)}.ds-step:first-child{background:#f4f1f7;border-color:#e3dce9}.ds-step span{font-size:11px;color:var(--muted,#56685f)}.ds-step strong{font-family:var(--mono,ui-monospace,SFMono-Regular,Consolas,monospace);font-size:13px;font-weight:500;overflow-wrap:anywhere}.ds-step:first-child strong{font-family:inherit;color:#685279}.ds-result{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--muted,#56685f)}.ds-success{display:inline-flex;align-items:center;gap:5px;color:var(--green,#257b57)}.ds-success:before{content:\"\";width:4px;height:4px;border-radius:50%;background:currentColor}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Botanical specimen index",
+    "overview": "The web companion uses an evergreen shell, a mineral green work ground, crisp white surfaces, concise system typography, and carefully indexed model names. Its botanical character comes from palette and orderly classification. The route highlight supplies the signature interaction; familiar controls keep a dense observatory easy to operate.\n\nThe native Herdr mod belongs to the host application. It imports `theme()` from `herdr` and uses native layout and text primitives; its colors and typography follow the user's Herdr theme. The frontmatter describes the web companion only. The browser embed is a compact web variant, distinct from the native mod.",
+    "keyCharacteristics": [
+      "Evergreen framing and flat white work surfaces on the web.",
+      "Compact labels paired with monospaced model identifiers and measurements.",
+      "Green selected paths, lavender routing groups, and amber fallback evidence.",
+      "Explicit source, connection, update, and unknown-data states.",
+      "Native Herdr theme inheritance for the installed mod."
+    ],
+    "rules": [
+      {
+        "name": "Surface Ownership",
+        "body": "Apply the evergreen palette to browser surfaces; resolve native colors through Herdr `theme()` on every render.",
+        "section": "colors"
+      },
+      {
+        "name": "Route Evidence",
+        "body": "Pair route colors with labels and line treatment: selected paths are solid, fallback attempts are dashed, and other paths recede.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "**Do** keep browser components on the extracted evergreen, mineral, and paper palette.",
+      "**Do** resolve native panel colors through Herdr `theme()` on every render.",
+      "**Do** pair path and status colors with labels, line patterns, or accessible state text.",
+      "**Do** preserve monospaced identifiers, aligned measurements, and compact labels.",
+      "**Do** use the vertical route at the compact breakpoint and scroll dense request tables within their panel.",
+      "**Do** retain source identity, update time, missing values, and connection feedback alongside the records.",
+      "**Do** preserve keyboard focus and honor reduced-motion preferences."
+    ],
+    "donts": [
+      "**Don't** force the web evergreen palette or browser font stack onto the native Herdr mod.",
+      "**Don't** add botanical decoration to the specimen-index direction.",
+      "**Don't** add floating shadows to the flat work surfaces.",
+      "**Don't** treat lavender groups as errors or amber fallback attempts as selected successful paths.",
+      "**Don't** hide request columns to make the narrow table fit or replace missing data with invented values.",
+      "**Don't** treat the browser embed capture as evidence of native Herdr appearance."
+    ]
+  }
+}
