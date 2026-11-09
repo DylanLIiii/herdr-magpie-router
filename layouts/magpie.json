@@ -1,0 +1,73 @@
+{
+  "id": "root",
+  "type": "column",
+  "background": "canvas",
+  "preview": "layouts/magpie.svg",
+  "resizable": false,
+  "children": [
+    {
+      "id": "magpie-navigation",
+      "type": "block",
+      "size": { "px": 46 },
+      "content": { "mod": "magpie-navigation", "props": { "stack": "magpie-pages" } }
+    },
+    {
+      "id": "magpie-pages",
+      "type": "stack",
+      "active": "magpie-dashboard",
+      "children": [
+        {
+          "id": "magpie-workspace",
+          "type": "row",
+          "divider": { "width": 1, "color": "border" },
+          "children": [
+            {
+              "id": "sidebar",
+              "type": "column",
+              "size": { "px": 240 },
+              "min": 44,
+              "max": 480,
+              "background": "chrome",
+              "children": [
+                { "id": "spaces", "type": "block", "content": { "mod": "spaces" } },
+                { "id": "agents", "type": "block", "content": { "mod": "agents" } }
+              ]
+            },
+            {
+              "id": "work",
+              "type": "column",
+              "children": [
+                { "id": "tabs", "type": "block", "size": { "px": 42 }, "content": { "mod": "tabs" } },
+                {
+                  "id": "main",
+                  "type": "block",
+                  "padding": 8,
+                  "content": {
+                    "tab": "active",
+                    "pane": {
+                      "gap": 8,
+                      "radius": 6,
+                      "background": "background",
+                      "lone": true,
+                      "border": { "width": 1, "color": "border" },
+                      "focus": { "width": 1, "color": "accent" },
+                      "header": { "content": { "mod": "pane" }, "height": 30, "position": "top", "reveal": "always" }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "magpie-dashboard",
+          "type": "block",
+          "content": {
+            "mod": "magpie-dashboard",
+            "props": { "endpoint": "http://127.0.0.1:4317/api/dashboard", "stack": "magpie-pages", "page": "magpie-dashboard", "presentation": "page" }
+          }
+        }
+      ]
+    }
+  ]
+}

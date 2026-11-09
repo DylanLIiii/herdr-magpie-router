@@ -1,8 +1,8 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { demoSnapshot } from './demo.js';
-import { MagpieSource } from './magpie.js';
+import { demoSnapshot, demoDashboard } from './demo.js';
+import { DashboardSource, PERIODS } from './dashboard.js';
 
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
@@ -16,13 +16,13 @@ export function disconnectedSnapshot(error, configured = false) {
   return {
     mode: 'live', connection: configured ? 'disconnected' : 'unconfigured',
     updatedAt: new Date().toISOString(),
-    source: { label: 'Magpie', detail: configured ? '无法读取 Magpie，请检查连接和认证配置' : '请在本地 .env 设置 MAGPIE_URL 后重启面板' },
+    source: { label: 'Magpie', detail: configured ? '无法读取 Magpie，请检查连接和认证配置' : '请在本地 .env 设置 MAGPIE_WEB_URL / MAGPIE_WEB_KEY（或 MAGPIE_URL）后重启面板' },
     error, requests: [], groups: [], providers: [],
   };
 }
 
 /** Read-only bridge. A fixed upstream is configured by the operator, never by browser input. */
-export function createApp({ source = new MagpieSource(), port = 4317 } = {}) {
+export function createApp({ source = new DashboardSource(), port = 4317 } = {}) {
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
   return createServer(async (request, response) => {
     const headers = {
@@ -49,6 +49,22 @@ export function createApp({ source = new MagpieSource(), port = 4317 } = {}) {
     let url;
     try { url = new URL(request.url, `http://127.0.0.1:${port}`); }
     catch { return send(400, { error: 'Invalid URL' }); }
+    if (url.pathname === '/api/dashboard') {
+      const mode = url.searchParams.get('mode') || 'live';
+      const period = url.searchParams.get('period') || 'today';
+      const zone = url.searchParams.get('tz') || '';
+      if (!['demo', 'live'].includes(mode) || !PERIODS.includes(period) || zone.length > 100 || !/^[A-Za-z0-9_+/:.-]*$/.test(zone)) {
+        return send(400, { error: 'Invalid mode, usage period or time zone' });
+      }
+      if (mode === 'demo') return send(200, demoDashboard(period));
+      const unavailable = error => ({
+        ...disconnectedSnapshot(error, source.configured), period, usage: null,
+        configuredGroups: null, service: source.service || null, warnings: [],
+      });
+      if (!source.configured) return send(503, unavailable('Set MAGPIE_WEB_URL and MAGPIE_WEB_KEY in the bridge .env, then restart the bridge.'));
+      try { return send(200, await source.dashboard(period, zone)); }
+      catch (error) { return send(503, unavailable(error.publicMessage || 'Cannot reach Magpie. Check the service address and access key.')); }
+    }
     if (url.pathname === '/api/snapshot') {
       const mode = url.searchParams.get('mode') || 'demo';
       if (mode === 'demo') return send(200, demoSnapshot());

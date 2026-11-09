@@ -20,16 +20,17 @@ Make Magpie routing legible at a glance, with enough detail to investigate indiv
 
 ## Operating Context
 
-The user supplied https://herdr.dev/mods/ and https://github.com/yetone/magpie as the integration references. The local machine has Node.js and Herdr CLI; the Herdr desktop agent guide is absent. The community mod packaging requires mods/<name>/RECIPE.md and preview.png, without a layouts/ folder.
+The user supplied Herdr and https://github.com/yetone/magpie as integration references. The local machine has Node.js and a temporary Herdr 0.1.10 binary for native validation; the user's desktop configuration is absent. The requested deliverable is a right sidebar in the default workspace. Shipped layouts reject structural additions, so installation clones main via Herdr and adds one block to its personal copy, preserving the terminal workspace and theme.
 
 ## Capabilities and Constraints
 
 - Actual integration must use verified upstream interfaces.
 - The interface must distinguish demonstration data, live data, stale data, and connection failures.
-- Read-only observability; do not mutate Magpie routes or existing Herdr configuration.
+- Read-only Magpie observability; never mutate Magpie routes. Herdr installation may add the requested sidebar to a personal clone, with a backup. Preserve shipped layouts, settings and keybindings.
 - Keep Magpie credentials on the local bridge, outside the browser and repository.
 - Responsive operation in a desktop window, embedded panel, and narrow preview.
-- Working assumptions: use a dedicated mod rather than replace the user's entire layout; focus on requests, route selection, provider outcomes, and timing where upstream exposes them. These are implementation defaults inferred from the request.
+- The user clarified that the requested surface is a right sidebar, not the earlier standalone Workspace / Magpie page layout. Match Herdr's default theme and Files / Changes panel styling. Use a compact Routes / Usage switch inside a 368px panel, leaving terminals visible. The prior page variant is retained only for compatibility. No target Magpie IP has been supplied yet.
+- Focus on requests, route selection, provider outcomes, timing and usage where upstream exposes them. These are implementation defaults inferred from the request.
 
 ## Evidence on Hand
 

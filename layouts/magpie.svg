@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="440" viewBox="0 0 720 440">
+  <title>Magpie layout structure: Workspace and Magpie pages</title>
+  <rect width="720" height="440" rx="12" fill="#202327"/>
+  <path d="M0 52h720" stroke="#454a50"/>
+  <rect x="123" y="12" width="98" height="28" rx="5" fill="#3c454c"/>
+  <g font-family="sans-serif" font-size="14" fill="#c5cbd0"><text x="24" y="31">Workspace</text><text x="144" y="31" fill="#f0f2f4">Magpie</text></g>
+  <g font-family="sans-serif" fill="#edf0f2"><text x="32" y="99" font-size="26">Magpie</text><text x="32" y="124" font-size="13" fill="#b4bec6">Your service · routes and usage</text></g>
+  <rect x="32" y="146" width="78" height="29" rx="4" fill="#3c454c"/>
+  <g font-family="sans-serif" font-size="13" fill="#e0e6ea"><text x="49" y="166">Routes</text><text x="130" y="166">Usage</text></g>
+  <path d="M32 194h656" stroke="#454a50"/>
+  <g font-family="sans-serif" font-size="14" fill="#edf0f2"><text x="32" y="222">Routing groups</text><text x="32" y="304">Recent requests</text><text x="408" y="304">Routing attempts</text></g>
+  <g fill="#3b4248"><rect x="32" y="240" width="102" height="24" rx="4"/><rect x="144" y="240" width="102" height="24" rx="4"/><rect x="256" y="240" width="102" height="24" rx="4"/></g>
+  <rect x="392" y="321" width="296" height="84" rx="5" fill="#2e343a"/>
+  <g stroke="#67747e" stroke-width="4" stroke-linecap="round"><path d="M34 331h206M34 357h170M34 383h192M410 343h170M410 369h139"/></g>
+</svg>

@@ -4,13 +4,41 @@ const routes = [
   { id: 'fast', name: 'fast', strategy: 'weighted', enabled: true, candidates: [{ provider: 'google', model: 'gemini-2.5-flash', weight: 3 }, { provider: 'openai', model: 'gpt-4.1-mini', weight: 1 }] },
 ];
 
+export function demoDashboard(period = 'today') {
+  const snapshot = demoSnapshot();
+  const models = new Map();
+  for (const request of snapshot.requests) {
+    const key = `${request.provider}/${request.model}`;
+    if (!models.has(key)) models.set(key, { model: request.model, provider: request.provider, calls: 0, errors: 0, input: 0, output: 0, cache_read: 0, cache_write: 0, cost: null, unpriced: 0 });
+    const row = models.get(key);
+    row.calls++;
+    row.errors += request.status === 'error' ? 1 : 0;
+    row.input += request.inputTokens || 0;
+    row.output += request.outputTokens || 0;
+    row.unpriced++;
+  }
+  const rows = [...models.values()].sort((a, b) => b.calls - a.calls);
+  const total = key => rows.reduce((sum, row) => sum + row[key], 0);
+  return {
+    ...snapshot, period, zone: 'Demo time zone',
+    service: { url: 'Synthetic preview · no service connected', kind: 'demo' }, warnings: [],
+    configuredGroups: snapshot.groups.map(group => ({ ...group, ref: `auto/${group.id}`, ready: true,
+      members: group.candidates.map(member => ({ ...member, id: `${member.provider}/${member.model}`, weight: member.weight || 1, group: false, ready: true, enabled: true })) })),
+    usage: { period, calls: total('calls'), errors: total('errors'), input: total('input'), output: total('output'),
+      cache_read: 0, cache_write: 0, cost: null, unpriced: total('unpriced'), models: rows },
+  };
+}
+
 /** All values in this module are synthetic. They never represent a running Magpie instance. */
 export function demoSnapshot(now = Date.now()) {
   const requests = Array.from({ length: 64 }, (_, i) => {
     const group = routes[i % routes.length];
     const fallback = i % 13 === 3;
     const failed = i % 23 === 7;
-    const candidate = group.candidates[fallback ? 1 : 0];
+    // Synthetic weighted traffic follows a smooth 3:1 split, so the native
+    // replay can demonstrate different observed destinations without inventing live activity.
+    const weightedChoice = group.strategy === 'weighted' && Math.floor(i / routes.length) % 4 === 2 ? 1 : 0;
+    const candidate = group.candidates[fallback ? 1 : weightedChoice];
     const durationMs = 780 + ((i * 677) % 6100);
     const attempts = [];
     if (fallback) attempts.push({ ...group.candidates[0], status: 'error', durationMs: 432, error: 'HTTP 429 · upstream rate limit (synthetic)' });

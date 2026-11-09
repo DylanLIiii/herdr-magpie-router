@@ -1,5 +1,7 @@
 # Herdr 原生 Mod 接入
 
+当前推荐安装的是支持远程路由与用量、符合 Herdr 默认主题的 [368px 右侧面板](sidebar.md)。本文以下内容仅描述早期 `magpie-router` 400px 面板，保留用于兼容。
+
 mods/magpie-router 是原生 GPUI JavaScript Mod，不是网页嵌入。main.js 默认导出 View，直接使用 gpui-kit、gpui-base 和 herdr 的 theme()。mod.json 首次安装默认右侧停靠，宽度 400 逻辑像素；之后由 Herdr 已有布局控制位置。无需 layouts 文件夹，也不要求修改现有配置。
 
 面板默认实时模式，只读访问 http://127.0.0.1:4317/api/snapshot?mode=live。点击“演示”请求同接口的 mode=demo，并明确标记演示数据。可通过宿主传入 props.endpoint 覆盖接口地址；使用完整快照路径，已有其他查询参数会保留。原生面板没有地址输入框。数据由桥接提供，面板不生成请求或提供商记录。
@@ -20,7 +22,7 @@ cp -R mods/magpie-router ~/.config/herdr-app/mods/magpie-router
 herdr-app check ~/.config/herdr-app/mods/magpie-router
 ```
 
-以上命令从仓库根目录执行；若已存在同名目标，应先处理旧目录，避免 cp 形成嵌套目录。首次发现 Mod 时 Herdr 根据 mod.json 停靠，保存文件会触发宿主热重载。这里没有执行复制、修改用户配置或发布操作。
+以上命令从仓库根目录执行；若已存在同名目标，应先处理旧目录，避免 cp 形成嵌套目录。Herdr 在个人布局中可根据 mod.json 停靠；自带布局受保护，必须先克隆再添加块，详见当前侧栏安装说明。保存文件会触发宿主热重载。这里没有执行复制、修改用户配置或发布操作。
 
 开发时也可以直接检查工作目录：
 

@@ -1,0 +1,17 @@
+{
+  "capturedOn": "2026-11-09",
+  "method": "herdr-app shot",
+  "application": "Herdr App 0.1.10 Linux, native GPUI under isolated Xvfb",
+  "layout": "main-magpie, a clone of the shipped main workspace with one right sidebar block",
+  "review": "Opened and reviewed in the implementation session; no independent reviewer agent",
+  "images": {
+    "routes-dark.png": { "width": 1440, "height": 1000, "panelWidth": 368, "theme": "default dark", "data": "synthetic demo with flat weighted-routing indicator" },
+    "routing-light-320.png": { "width": 1440, "height": 1000, "panelWidth": 320, "theme": "default light", "data": "synthetic demo with flat weighted-routing indicator" },
+    "routing-static.png": { "width": 1440, "height": 1000, "panelWidth": 320, "theme": "default light", "data": "synthetic demo; Motion off activated using actual pointer input" },
+    "routing-motion.gif": { "width": 368, "height": 430, "panelWidth": 368, "theme": "default dark", "method": "8-second X11 recording of the isolated native Herdr window; sidebar crop, 20 fps GIF", "frames": 160, "data": "explicitly labelled synthetic 3:1 weighted demo replay; not the user's reference screenshot" },
+    "usage-dark.png": { "width": 1440, "height": 1000, "panelWidth": 368, "theme": "default dark", "data": "synthetic demo" },
+    "request-detail.png": { "width": 1440, "height": 1000, "panelWidth": 368, "theme": "default dark", "data": "synthetic demo with fallback attempts, opened using actual keyboard input" },
+    "usage-light-320.png": { "width": 1440, "height": 1000, "panelWidth": 320, "theme": "default light", "data": "synthetic demo" },
+    "unconfigured.png": { "width": 1440, "height": 1000, "panelWidth": 320, "theme": "default light", "data": "live mode, intentionally unconfigured bridge, no request records" }
+  }
+}

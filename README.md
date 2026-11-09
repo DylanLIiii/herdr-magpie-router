@@ -1,19 +1,28 @@
 # Herdr · Magpie Router
 
-让 Magpie 的每一次路由都有迹可循。一个可嵌入 Herdr 的只读 Mod，也可以作为独立网页运行。
+在现有 Herdr 窗口的右侧查看指定 Magpie 服务的路由和用量。原生侧边栏默认宽度 368px，采用 Herdr 默认 Files / Changes 面板的样式，跟随明暗主题。
 
-![Magpie Router 网页伴侣预览，使用演示数据；不是原生 Herdr 截图](mods/magpie-router/preview.png)
+在 `.env` 设置 `MAGPIE_WEB_URL` 和 `MAGPIE_WEB_KEY`，启动本地桥接后运行 **`npm run install:panel`**。复制默认工作区并挂载面板后，侧栏与中央终端同时显示。完整安装、端口与认证说明见 [右侧面板](docs/sidebar.md)。
+
+![Herdr 默认布局右侧的 Magpie 面板；原生截图，使用合成演示数据](docs/previews/sidebar/routes-dark.png)
+
+平铺的模型节点与一个原生小光点显示路由去向；权重、轮询、顺序和回退保留各自语义。支持历史回放和静态模式，详细说明见 [路由动效](docs/routing-motion.md)。
+
+![原生小光点路由回放；合成演示数据](docs/previews/sidebar/routing-motion.gif)
 
 ## 开始使用
 
 需要 Node.js 22 或更新版本，运行时没有第三方依赖。
 
 ```sh
-cd /root/projects/herdr-magpie-router
+git clone https://github.com/DylanLIiii/herdr-magpie-router.git
+cd herdr-magpie-router
+cp .env.example .env
+# 在 .env 配置 MAGPIE_WEB_URL 和 MAGPIE_WEB_KEY
 npm start
 ```
 
-打开 <http://127.0.0.1:4317>。默认显示明确标识的**演示数据**，不需要 Magpie 凭据。可在顶部切换数据源。
+原生侧边栏默认实时模式；Demo 按钮提供明确标识的合成数据预览。保留的网页伴侣可在 <http://127.0.0.1:4317> 独立打开，默认演示模式。
 
 | 地址 | 用途 |
 | --- | --- |
@@ -25,8 +34,8 @@ npm start
 
 - 路由分组、实际模型、Provider 之间的对应关系。
 - 最近请求的结果、耗时、可用的 token 用量和尝试记录。
-- 请求搜索、时间窗口与状态筛选、详情检查、JSON 导出。
-- 最近路由中观察到的分组候选模型和 Provider 表现。
+- 侧边栏展示配置的路由分组，以及 Today / 7 days / 30 days / All time 的用量、缓存 token 和报告成本。
+- 网页伴侣另提供请求搜索、时间窗口与状态筛选、详情检查、JSON 导出。
 - 演示、实时、尚未配置、断连、空结果等状态。
 
 展示范围受 Magpie 上游返回的记录和字段限制；未提供的测量显示 `—`。实时失败时保留明确的断连状态，不切回演示数据。Provider 状态基于最近可见尝试，不代表独立健康探测。
@@ -37,13 +46,16 @@ npm start
 
 ## 安装到 Herdr
 
-先读 [Mod 安装说明](mods/magpie-router/RECIPE.md)。`mods/magpie-router/main.js` 是实际的原生 GPUI 组件，首次发现默认停靠在右侧，宽度 400px，继承 Herdr 主题。网页伴侣用于独立查看；Herdr 原生组件直接读取同一个本地数据桥。
+```sh
+npm run install:panel
+herdr-app check ~/.config/herdr-app/mods/magpie-panel
+herdr-app do layout.clone --name main --as main-magpie
+npm run attach:panel
+```
 
-仓库不会自动修改你的 Herdr 布局或 Magpie 配置。已使用官方 Herdr App 0.1.10 临时发布包通过原生 `herdr-app check` 初始加载与渲染检查，也通过模拟宿主生命周期测试。目标机器仍应阅读自身版本的指南并再次运行检查；主题、异步状态与实际交互需在使用环境复查，详见 [原生安装与验收](docs/herdr.md)。
+安装一个原生 Mod，并将它挂到默认布局副本的右侧。Herdr 保护自带布局，因此使用 `layout.clone` 保留默认界面后扩展。挂载前备份副本，已有面板不会重复添加；自带布局、设置和快捷键保持原样。参见 [安装说明](docs/sidebar.md) 与 [原生验证](docs/sidebar-verification.md)。
 
-可以把以下指令交给 Herdr 中的 Agent：
-
-> 先读取 `~/.config/herdr-app/AGENTS.md`，再读取这个仓库的 `mods/magpie-router/RECIPE.md` 和相关源文件，将 Magpie Router 作为只读面板加入我现有的布局。
+`mods/magpie-dashboard/` 是当前侧边栏实现，安装器默认将它安装为 `magpie-panel`。早期的 `mods/magpie-router/` 侧栏与 `install:layout` 整页版本保留兼容；本次所需的右侧面板使用 **`install:panel`**。
 
 ## 开发与验证
 
@@ -57,6 +69,6 @@ npm run test:ui
 
 如果已有 Chromium，可以设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/to/chrome`。测试覆盖上游数据适配、凭据隔离、只读边界和主要界面操作。
 
-主要目录：`public/` 是浏览器界面，`server/` 是本地只读数据桥，`mods/magpie-router/` 是 Herdr 接入组件与配方，`test/` 是测试，`docs/` 是接口说明与设计约束。
+主要目录：`public/` 是浏览器界面，`server/` 是本地只读数据桥，`mods/magpie-dashboard/` 是当前原生面板，`scripts/install-panel.js` 负责安装，`test/` 是测试，`docs/` 是接口说明与原生截图。
 
-此仓库只在本地创建。公开发布到 Herdr Mods 目录时，需要自行推送到公开 GitHub 仓库并添加 `herdr-mod` topic，官方目录通常在一小时内收录。参考 [Herdr Mods](https://herdr.dev/mods/) 与 [Magpie](https://github.com/yetone/magpie)。
+这是一个社区集成，使用 [Herdr](https://github.com/herdrdev/herdr-app) 的原生 GPUI Mod 接口，读取 [Magpie](https://github.com/yetone/magpie) 的路由与用量 API。代码按 [MIT License](LICENSE) 开源。预览使用合成数据；不会发布服务凭据或真实账户截图。

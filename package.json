@@ -10,7 +10,10 @@
     "dev": "node --env-file-if-exists=.env --watch server/index.js",
     "test": "node --test test/*.test.js",
     "test:ui": "playwright test",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "install:layout": "node scripts/install-layout.js",
+    "install:panel": "node scripts/install-panel.js",
+    "attach:panel": "node scripts/attach-panel.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2"
