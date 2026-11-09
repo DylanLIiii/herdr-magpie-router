@@ -1,5 +1,7 @@
 # 右侧面板验证
 
+本文保留早期快照面板的验证记录。当前版本已有 Files / Changes 后的 Routing 按钮、实时长轮询状态机和 Usage 趋势图，参见 [最新实时验证](live-routing-verification.md)。
+
 2026-11-09，在官方 Herdr App 0.1.10 Linux 二进制、隔离 Xvfb 显示、独立 `HERDR_APP_HOME` / XDG / `HC_SESSION` 下验证。使用的是默认 `main` 的个人副本 `main-magpie`，只添加右侧面板，没有独立页面导航。
 
 ## 结果

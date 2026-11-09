@@ -1,0 +1,17 @@
+{
+  "capturedOn": "2026-11-09",
+  "application": "Herdr App 0.1.10 Linux native GPUI in isolated Xvfb",
+  "layout": "Clone of default main; Routing button after Changes, shared panel stack",
+  "data": "Explicit synthetic dynamic trace (seq, selection, attempt done, route done, fallback), not the user's private service",
+  "upstreamSource": "yetone/magpie@cd0ba05c216c924ef7f962c25111c0293814b45b",
+  "review": "Every screenshot opened and animation frames inspected in the implementation session",
+  "images": {
+    "routes-dark.png": { "method": "herdr-app shot", "width": 1440, "height": 1000, "panelWidth": 368 },
+    "closed.png": { "method": "herdr-app shot after actual Routing button click", "width": 1440, "height": 1000 },
+    "files.png": { "method": "herdr-app shot after actual Files button click", "width": 1440, "height": 1000 },
+    "changes.png": { "method": "herdr-app shot after actual Changes button click", "width": 1440, "height": 1000 },
+    "usage-dark.png": { "method": "herdr-app shot", "width": 1440, "height": 1000, "panelWidth": 368 },
+    "usage-light-320.png": { "method": "herdr-app shot after actual cache/Agents controls", "width": 1440, "height": 1000, "panelWidth": 320 },
+    "live-routing.gif": { "method": "26-second native X11 recording, cropped to toolbar and right panel, encoded at 15fps", "width": 400, "height": 920, "frames": 390 }
+  }
+}

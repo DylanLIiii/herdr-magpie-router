@@ -16,12 +16,13 @@ export function createReader({ baseUrl, headers = {}, fetchImpl = fetch, timeout
   if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) {
     throw new SourceError('MAGPIE_URL 需要无内嵌凭据的 HTTP(S) 地址');
   }
-  return async function read(path) {
+  return async function read(path, { signal, timeout = timeoutMs } = {}) {
     const url = new URL(path, base);
     if (url.origin !== base.origin) throw new SourceError('拒绝访问其他上游地址');
     let response;
     try {
-      response = await fetchImpl(url, { method: 'GET', headers: { Accept: 'application/json', ...headers }, signal: AbortSignal.timeout(timeoutMs), redirect: 'error' });
+      const deadline = AbortSignal.timeout(Math.min(35000, Math.max(1, timeout)));
+      response = await fetchImpl(url, { method: 'GET', headers: { Accept: 'application/json', ...headers }, signal: signal ? AbortSignal.any([signal, deadline]) : deadline, redirect: 'error' });
     } catch {
       throw new SourceError('Magpie 连接失败或超时，请检查服务地址');
     }

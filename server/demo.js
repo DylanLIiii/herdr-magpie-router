@@ -19,13 +19,20 @@ export function demoDashboard(period = 'today') {
   }
   const rows = [...models.values()].sort((a, b) => b.calls - a.calls);
   const total = key => rows.reduce((sum, row) => sum + row[key], 0);
+  const series = Array.from({ length: 8 }, (_, index) => {
+    const chunk = snapshot.requests.slice().reverse().slice(index * 8, index * 8 + 8);
+    return { label: chunk[0].timestamp.slice(11, 16), time: chunk[0].timestamp,
+      input: chunk.reduce((n, row) => n + (row.inputTokens || 0), 0), output: chunk.reduce((n, row) => n + (row.outputTokens || 0), 0),
+      cache_read: 0, cache_write: 0, calls: chunk.length };
+  });
   return {
     ...snapshot, period, zone: 'Demo time zone',
     service: { url: 'Synthetic preview · no service connected', kind: 'demo' }, warnings: [],
     configuredGroups: snapshot.groups.map(group => ({ ...group, ref: `auto/${group.id}`, ready: true,
       members: group.candidates.map(member => ({ ...member, id: `${member.provider}/${member.model}`, weight: member.weight || 1, group: false, ready: true, enabled: true })) })),
     usage: { period, calls: total('calls'), errors: total('errors'), input: total('input'), output: total('output'),
-      cache_read: 0, cache_write: 0, cost: null, unpriced: total('unpriced'), models: rows },
+      cache_read: 0, cache_write: 0, cache_unknown: 0, cache_unknown_calls: 0, cost: null, unpriced: total('unpriced'), models: rows,
+      bucket: 'minute', series, agents: [{ name: 'Demo agent', calls: total('calls'), errors: total('errors'), input: total('input'), output: total('output'), cache_read: 0, cache_write: 0, cost: null }] },
   };
 }
 

@@ -2,7 +2,9 @@ import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme, layout, nextCommand, props as hostProps } from "herdr";
 import config from "./config.js";
-import { RouteSignal, strategyInfo, destinationKey, rowY } from "./routing.js";
+import { strategyInfo, destinationKey, rowY } from "./routing.js";
+import { TraceStore, LiveRouting } from "./live-routing.js";
+import { tokenTotal, cacheHit, usageBars } from "./usage.js";
 
 const PERIODS = [["today", "Today"], ["7d", "7 days"], ["30d", "30 days"], ["all", "All time"]];
 const plain = (value, max = 100) => {
@@ -49,9 +51,13 @@ export default class MagpieDashboard extends View {
     this.queued = false;
     this.error = "";
     this.generation = 0;
+    this.trace = new TraceStore(); this.traceBusy = false; this.traceCaught = true;
+    this.traceError = ""; this.traceConnected = false; this.traceNext = 0; this.traceGeneration = 0;
+    this.groupPinned = false; this.withCache = false; this.usageBreakdown = "models";
     this.motion = config.motion !== false;
     try { const saved = localStorage.getItem("routing-motion"); if (saved) this.motion = saved === "on"; } catch (_) { /* Host without persistent storage. */ }
-    this.signal = new RouteSignal(() => this.visible() && !this.paused && !this.closed && !this.error && this.motion && this.section === "routes" && !this.details);
+    this.live = new LiveRouting(() => this.traceVisible() && this.motion && this.traceConnected);
+    try { this.withCache = localStorage.getItem("usage-with-cache") === "1"; } catch (_) {}
     this.focus = cx.focus_handle();
     cx.spawn(async (cx) => { for (;;) {
       const command = await nextCommand();
@@ -59,22 +65,78 @@ export default class MagpieDashboard extends View {
       else if (command === "usage" || command === "routes") this.section = command;
       else if (command === "demo" || command === "live") this.change("mode", command, cx);
       else if (command === "refresh") this.refresh(cx);
-      else if (command === "replay") this.replay(cx);
       cx.notify();
     } });
+    cx.timer.every(1000, (cx) => {
+      if (!this.traceVisible()) {
+        this.traceCaught = true;
+        if (this.live.dots.size) { this.live.stop(); cx.notify(); }
+      } else if (!this.traceBusy && Date.now() >= this.traceNext) this.pollTrace(cx);
+      if (this.traceBusy && Date.now() - this.traceStarted > 35000) {
+        this.traceGeneration++; this.traceBusy = false; this.traceNext = Infinity;
+        this.traceError = "Live routing timed out. Choose Refresh to reconnect."; this.traceConnected = false;
+        this.traceCaught = true; this.live.stop(); cx.notify();
+      }
+    });
     cx.timer.every(5000, (cx) => {
       if (this.loading && Date.now() - this.started >= 15000) {
         this.generation++; this.loading = false; this.queued = false; this.paused = true;
         this.error = "The bridge did not respond within 15 seconds. Auto refresh is paused. Check the bridge, then refresh.";
-        this.signal.stop();
+        this.live.stop();
         cx.notify();
       } else if (!this.loading && !this.paused && this.visible() && Date.now() - (this.started || 0) >= 10000) {
         this.refresh(cx);
       }
     });
     this.refresh(cx);
+    if (this.traceVisible()) this.pollTrace(cx);
   }
 
+  traceVisible() { return !this.closed && !this.paused && this.visible() && this.section === "routes" && !this.details; }
+  pollTrace(cx) {
+    if (!this.traceVisible() || this.traceBusy) return;
+    this.traceBusy = true; this.traceStarted = Date.now();
+    const generation = ++this.traceGeneration, mode = this.mode;
+    const base = this.endpoint.split("?")[0].replace(/\/api\/dashboard$/, "/api/routing");
+    const url = `${base}?mode=${mode}&after=${this.trace.seq}&epoch=${this.trace.epoch}${this.trace.loaded ? "&wait=1" : ""}`;
+    cx.spawn(async current => {
+      try {
+        const response = await fetch(url), frame = await response.json();
+        if (!response.ok) throw new Error(frame?.error || "Live routing unavailable");
+        if (!Array.isArray(frame.routes) || !Number.isSafeInteger(frame.seq) || typeof frame.epoch !== "string" || frame.mode !== mode) throw new Error("Incompatible live routing response");
+        if (generation !== this.traceGeneration || mode !== this.mode || this.closed) return;
+        if (!this.traceVisible()) { this.traceCaught = true; return; }
+        if (!frame.mine) { this.traceConnected = false; this.traceCaught = true; this.traceError = "The gateway is not serving a live trace."; this.traceNext = Date.now() + 5000; this.live.stop(); return; }
+        const result = this.trace.apply(frame, this.traceCaught);
+        this.traceCaught = false; this.traceConnected = true; this.traceError = "";
+        const newest = [...this.trace.routes.values()].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))[0];
+        const nextGroup = newest ? newest.group || "@direct" : null;
+        if (!this.groupPinned && nextGroup && nextGroup !== this.group) {
+          this.group = nextGroup;
+          this.live.setGroup(this.currentGroup(), current);
+        }
+        this.live.ingest(this.trace, result.play, current, { animate: this.motion, reset: result.reset });
+        this.traceNext = Date.now() + 50;
+        if (!this.requests().some(row => row.id === this.selected)) this.selected = this.requests()[0]?.id || null;
+      } catch (error) {
+        if (generation === this.traceGeneration && mode === this.mode && !this.closed) {
+          this.traceError = plain(error?.message || "Live routing disconnected", 150);
+          this.traceConnected = false; this.traceCaught = true; this.traceNext = Date.now() + 3000; this.live.stop();
+        }
+      } finally {
+        if (generation === this.traceGeneration && !this.closed) {
+          this.traceBusy = false; current.notify();
+          // Magpie immediately opens the next long poll. Delay only empty,
+          // failed or hidden work, never use the dashboard refresh as a clock.
+          if (this.traceVisible() && this.traceConnected && this.traceNext <= Date.now() + 50) {
+            current.timer.after(50, next => this.pollTrace(next));
+          }
+        }
+      }
+    });
+  }
+
+  currentGroup() { return this.groups().find(group => group.id === this.group) || null; }
   visible() {
     if (this.stack && this.page) return find(layout(), this.stack)?.active === this.page;
     if (!this.sidebar) return true;
@@ -85,22 +147,34 @@ export default class MagpieDashboard extends View {
     };
     return shown(layout());
   }
-  close() { this.closed = true; this.generation++; this.signal.stop(); }
+  close() { this.closed = true; this.generation++; this.traceGeneration++; this.live.stop(); }
 
-  syncSignal(cx, animate = true) {
-    this.signal.sync(this.groups().find(group => group.id === this.group), this.snapshot?.requests || [], this.mode, cx,
-      { animate: animate && this.motion && !this.paused && !this.error && this.section === "routes" && !this.details && this.visible(), firstDemo: true });
+  syncSignal(cx) {
+    this.live.group = this.currentGroup(); this.live.project();
   }
-  chooseGroup(id, cx) { this.group = id; this.syncSignal(cx, false); cx.notify(); }
-  replay(cx) { if (this.motion && !this.paused && !this.error && this.visible() && this.section === "routes" && !this.details) this.signal.replay(cx); }
+  chooseGroup(id, cx) {
+    this.group = id; this.groupPinned = true; this.live.setGroup(this.currentGroup(), cx);
+    this.resumeActive(cx);
+  }
+  resumeActive(cx) {
+    this.live.ingest(this.trace, [...this.trace.routes.values()].filter(route => !route.done).map(route => route.id), cx,
+      { animate: this.motion && this.traceVisible() && this.traceConnected });
+  }
+  followLive(cx) {
+    this.groupPinned = false;
+    const latest = [...this.trace.routes.values()].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))[0];
+    if (latest) this.group = latest.group || "@direct";
+    this.live.setGroup(this.currentGroup(), cx); this.resumeActive(cx); cx.notify();
+  }
   toggleMotion(cx) {
     this.motion = !this.motion;
     try { localStorage.setItem("routing-motion", this.motion ? "on" : "off"); } catch (_) { /* In-memory fallback. */ }
-    this.signal.stop(); this.syncSignal(cx, false); cx.notify();
+    this.live.stop(); this.syncSignal(cx); this.resumeActive(cx); cx.notify();
   }
 
   refresh(cx) {
     if (this.closed) return;
+    if (this.traceNext === Infinity) { this.traceNext = 0; if (this.traceVisible()) this.pollTrace(cx); }
     if (this.loading) { this.queued = true; return; }
     const mode = this.mode, period = this.period, generation = ++this.generation;
     this.started = Date.now(); this.loading = true; this.error = "";
@@ -125,7 +199,6 @@ export default class MagpieDashboard extends View {
       } catch (error) {
         if (!this.closed && generation === this.generation && mode === this.mode && period === this.period) {
           this.error = plain(error?.message || "Cannot read the local bridge. Start it and refresh.", 230);
-          this.signal.stop();
         }
       } finally {
         if (!this.closed && generation === this.generation) {
@@ -140,11 +213,34 @@ export default class MagpieDashboard extends View {
     if (this[key] === value) return;
     this[key] = value;
     this.snapshot = null; this.selected = null; this.group = null;
-    this.signal.stop();
-    this.refresh(cx); cx.notify();
+    this.live.stop();
+    if (key === "mode") {
+      this.trace.clear(); this.live.routes.clear(); this.traceCaught = true; this.traceConnected = false;
+      this.traceGeneration++; this.traceBusy = false; this.traceNext = 0; this.groupPinned = false;
+    }
+    this.refresh(cx); if (this.traceVisible()) this.pollTrace(cx); cx.notify();
   }
-  requests() { return (this.snapshot?.requests || []).filter(row => row && typeof row === "object").slice(0, 40); }
-  groups() { return (this.snapshot?.configuredGroups || []).filter(row => row && typeof row === "object"); }
+  requests() {
+    const merged = new Map((this.snapshot?.requests || []).filter(row => row && typeof row === "object").map(row => [row.id, row]));
+    for (const [id, route] of this.trace.routes) {
+      const previous = merged.get(id);
+      merged.set(id, { ...previous, ...route, inputTokens: route.inputTokens ?? previous?.inputTokens,
+        outputTokens: route.outputTokens ?? previous?.outputTokens, ttftMs: route.ttftMs ?? previous?.ttftMs });
+    }
+    return [...merged.values()].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp)).slice(0, 40);
+  }
+  groups() {
+    const groups = (this.snapshot?.configuredGroups || []).filter(row => row && typeof row === "object");
+    const byId = new Map(groups.map(group => [group.id, group]));
+    for (const route of this.trace.routes.values()) if (route.group && !byId.has(route.group)) byId.set(route.group, {
+      id: route.group, ref: route.groupRef, name: route.groupName || route.group, strategy: route.strategy, enabled: true,
+      ready: true, members: [], observed: true,
+    });
+    if ([...this.trace.routes.values()].some(route => !route.group && !route.groupRef)) byId.set("@direct", {
+      id: "@direct", name: "Direct requests", direct: true, strategy: "direct", enabled: true, ready: true, members: [],
+    });
+    return [...byId.values()];
+  }
 
   key(e, cx) {
     const key = e.key?.toLowerCase();
@@ -167,22 +263,26 @@ export default class MagpieDashboard extends View {
   }
 
   renderSignal(group, t, button) {
-    const signal = this.signal, info = strategyInfo(group.strategy);
+    const signal = this.live, info = strategyInfo(group.strategy);
     const text = (value, color = t.muted, size = 11) => div().min_w(0).text_size(size).text_color(color).child(plain(value, 180));
     const root = v_flex().min_w(0).gap(7);
     root.child(h_flex().gap(5).items_center()
       .child(text(info.label, t.foreground, 12).flex_1())
-      .when(Boolean(signal.events.length && this.motion && !this.paused && !this.error), el => el.child(button("route-replay", "Replay", false, cx => this.replay(cx))))
+      .child(button("route-follow", this.groupPinned ? "Follow live" : "Following", !this.groupPinned, cx => this.followLive(cx)))
       .child(button("route-motion", this.motion ? "Motion on" : "Motion off", false, cx => this.toggleMotion(cx))));
-    if (!signal.nodes.length) return root.child(text("No model destinations available."));
-    const chart = div().id("routing-paths").relative().w_full().h(rowY(signal.nodes.length - 1) + 18).flex_none();
-    chart.child(div().absolute().left(6).top(14).w(1).h(rowY(signal.nodes.length - 1) - 14).bg(t.border));
+    const chart = div().id("routing-paths").relative().w_full().h(Math.max(32, rowY(signal.nodes.length - 1) + 18)).flex_none();
+    if (signal.nodes.length) chart.child(div().absolute().left(6).top(14).w(1).h(rowY(signal.nodes.length - 1) - 14).bg(t.border));
     chart.child(div().absolute().left(0).top(2).size(12).rounded(6).border_1().border_color(t.muted).bg(t.background));
     chart.child(text("Magpie", t.dim).absolute().left(22).top(0));
     signal.nodes.forEach((node, index) => {
-      const active = signal.current && node.key === destinationKey(signal.current);
+      const activeDots = [...signal.dots.values()].filter(dot => {
+        const attempt = signal.routes.get(dot.id)?.attempts[dot.attempt];
+        return attempt && node.key === destinationKey(attempt);
+      });
+      const latest = signal.latest?.attempts.at(-1);
+      const active = activeDots.length || latest && node.key === destinationKey(latest);
       const y = rowY(index);
-      const color = active ? signal.current.status === "error" ? t.blocked : t.accent : t.border;
+      const color = active ? activeDots.some(dot => dot.outcome === "error") ? t.blocked : t.accent : t.border;
       chart.child(div().absolute().left(6).top(y).h(1).w(24).bg(color));
       chart.child(div().absolute().left(28).top(y - 2).size(5).rounded(3).bg(color));
       chart.child(h_flex().absolute().left(42).right(0).top(y - 14).h(30).gap(6).items_center()
@@ -192,21 +292,20 @@ export default class MagpieDashboard extends View {
         .when(info.id === "weight" && !node.observed, el => el.child(text(`×${node.weight || 1}`, t.dim)))
         .when(node.enabled === false || node.ready === false, el => el.child(text("Off", t.dim))));
     });
-    if (signal.current) {
-      const moving = this.motion && !this.paused && !this.error && signal.moving;
-      const pending = this.motion && !this.paused && !this.error && signal.current.status === "pending" && signal.label === "Latest observed route";
-      const index = signal.nodes.findIndex(node => node.key === destinationKey(signal.current));
-      const x = moving ? signal.x : 30, y = moving ? signal.y : rowY(index);
-      const color = signal.current.status === "error" && !moving ? t.blocked : t.accent;
-      let dot = div().id(`route-dot-${signal.serial}`).absolute().left(x - 6).top(y - 6).size(12)
-        .accessibility_label(`${signal.label}: ${signal.current.provider}, ${signal.current.model}, ${state(signal.current.status)}`);
-      if (moving) dot = dot.transition("left", { duration: 180, easing: "linear" }).transition("top", { duration: 240, easing: "linear" });
+    for (const [offset, packet] of [...signal.dots.values()].entries()) {
+      const { x, y } = signal.position(packet);
+      const color = packet.outcome === "error" ? t.blocked : packet.outcome === "success" ? t.done : t.accent;
+      const dot = div().id(`route-dot-${packet.id}`).absolute().left(x - 6 + offset * 2).top(y - 6).size(12)
+        .accessibility_label(`Request ${packet.phase}, attempt ${packet.attempt + 1}`)
+        .transition("left", { duration: 180, easing: "linear" }).transition("top", { duration: 240, easing: "linear" });
       dot.child(div().absolute().inset_0().rounded(6).bg(color).opacity(0.14));
       let core = div().absolute().left(3).top(3).size(6).rounded(3).bg(color);
-      if (pending) core = core.loop("opacity", { from: 0.45, to: 1, period: 1200 });
+      if (packet.phase === "held" || packet.phase === "selecting") core = core.loop("opacity", { from: 0.45, to: 1, period: 1200 });
       chart.child(dot.child(core));
     }
-    root.child(chart).child(text(signal.label + (signal.current?.fallback ? " · fallback" : ""), t.dim));
+    const activeCount = [...signal.routes.values()].filter(route => !route.done).length;
+    root.child(chart).child(text(this.traceError || (this.traceConnected ? activeCount ? `${activeCount} request(s) in progress · live trace` : "Live · waiting for requests" : "Connecting live trace…"), this.traceError ? t.blocked : t.dim));
+    if (signal.overflow) root.child(text(`${signal.overflow} more requests remain in the list.`, t.dim));
     if (signal.total > signal.nodes.length) root.child(text(`Showing ${signal.nodes.length} of ${signal.total} model destinations.`, t.dim));
     return root.child(text(info.hint, t.dim));
   }
@@ -234,7 +333,7 @@ export default class MagpieDashboard extends View {
       .on_mouse_down("left", () => this.focus.focus())
       .on_size_change((size, cx) => { if (this.width !== size.width) { this.width = size.width; cx.notify(); } });
     root.child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
-      .child(div().font_semibold().child("Magpie")).child(div().flex_1())
+      .child(div().font_semibold().child("Routing")).child(div().flex_1())
       .child(button("page-refresh", this.loading ? "Reading…" : "Refresh", false, cx => this.refresh(cx))));
     root.child(h_flex().px(6).py(5).gap(3).flex_none().items_center()
       .child(button("page-routes", "Routes", this.section === "routes", cx => { this.section = "routes"; this.details = false; cx.notify(); }))
@@ -248,33 +347,56 @@ export default class MagpieDashboard extends View {
     const body = v_flex().id("magpie-panel-body").flex_1().min_h(0).min_w(0).overflow_y_scrollbar().p(14).gap(12);
     if (this.mode === "demo") body.child(note("Synthetic preview · not your service's data."));
     if (this.error) body.child(note(this.error, t.blocked));
+    if (this.traceError && this.section === "routes") body.child(note(this.traceError, t.blocked));
     for (const message of snapshot?.warnings || []) body.child(note(message, t.blocked));
-    if (!snapshot) {
+    if (!snapshot && !this.trace.loaded) {
       body.child(heading(this.loading ? "Loading Magpie…" : "Connect your service"))
         .child(text("Set the service address and web access key in the local bridge's .env, then restart it and refresh."))
         .child(note("MAGPIE_WEB_URL · MAGPIE_WEB_KEY"))
         .child(note("Demo previews the panel with synthetic data."));
     } else if (this.section === "usage") {
       body.child(h_flex().gap(2).flex_wrap().children(PERIODS.map(([id, title]) => button(`period-${id}`, title, this.period === id, cx => this.change("period", id, cx)))));
-      body.child(note(`${PERIODS.find(([id]) => id === this.period)?.[1]} · ${plain(snapshot.zone)}`));
-      const usage = snapshot.usage;
+      body.child(note(`${PERIODS.find(([id]) => id === this.period)?.[1]} · ${plain(snapshot?.zone)}`));
+      const usage = snapshot?.usage;
       if (!usage) body.child(note("Usage is unavailable. Check the connection and refresh.", t.blocked));
       else {
+        body.child(h_flex().gap(6).items_center()
+          .child(text("Tokens", t.foreground, 12).flex_1())
+          .child(button("usage-cache", this.withCache ? "With cache" : "Without cache", this.withCache, cx => {
+            this.withCache = !this.withCache;
+            try { localStorage.setItem("usage-with-cache", this.withCache ? "1" : "0"); } catch (_) {}
+            cx.notify();
+          })))
+          .child(text(count(tokenTotal(usage, this.withCache)), t.foreground, 23));
+        const hit = cacheHit(usage);
+        body.child(note(`Cache hit ${hit === null ? "—" : `${Math.round(hit * 100)}%`}${usage.cache_unknown_calls ? ` · ${count(usage.cache_unknown_calls)} unknown-cache calls excluded` : ""}`));
+        const bars = usageBars(usage.series, this.withCache);
+        if (bars.length) {
+          const peak = Math.max(1, ...bars.map(bar => bar.total || 0));
+          body.child(h_flex().h(72).items_end().gap(2).children(bars.map((bar, index) => v_flex().id(`usage-bar-${index}`).flex_1().min_w(0).h(72).justify_end()
+            .accessibility_label(`${bar.label}: ${count(bar.total)} tokens`)
+            .child(div().h(60 * (bar.output || 0) / peak).bg(t.accent))
+            .child(div().h(60 * (bar.input || 0) / peak).bg(t.muted).opacity(0.45)))))
+            .child(h_flex().justify_between().child(note(bars[0].label)).child(note(bars.at(-1).label)))
+            .child(note("Input below · output above"));
+        }
         const totals = v_flex().gap(9);
         for (const [name, value] of [["Requests", count(usage.calls)], ["Errors", count(usage.errors)], ["Input tokens", count(usage.input)],
           ["Output tokens", count(usage.output)], ["Cache read", count(usage.cache_read)], ["Cache write", count(usage.cache_write)]]) totals.child(pair(name, value));
         body.child(totals).child(line()).child(pair("Reported cost · USD", money(usage.cost)))
           .child(note(usage.unpriced > 0 ? `${count(usage.unpriced)} calls have no known price. Cost covers priced calls only.` : "Magpie-reported cost; subscription invoices may differ."));
-        body.child(line()).child(heading("Models"));
-        const models = Array.isArray(usage.models) ? usage.models : [];
-        if (!models.length) body.child(note("No model usage in this period."));
+        body.child(line()).child(h_flex().gap(4)
+          .child(button("usage-models", "Models", this.usageBreakdown === "models", cx => { this.usageBreakdown = "models"; cx.notify(); }))
+          .child(button("usage-agents", "Agents", this.usageBreakdown === "agents", cx => { this.usageBreakdown = "agents"; cx.notify(); })));
+        const models = Array.isArray(usage[this.usageBreakdown]) ? usage[this.usageBreakdown] : [];
+        if (!models.length) body.child(note("No usage in this period."));
         for (const model of models) body.child(v_flex().min_w(0).gap(6)
-          .child(text(model.model, t.foreground, 13).truncate())
+          .child(text(model.model || model.name, t.foreground, 13).truncate())
           .child(text(model.provider, t.dim, 11).truncate())
           .child(pair("Requests / errors", `${count(model.calls)} / ${count(model.errors)}`))
           .child(pair("Input / output", `${count(model.input)} / ${count(model.output)}`))
           .child(pair("Cost", money(model.cost))).child(line()));
-        body.child(note("Totals cover the full selected period. Top 20 models shown."));
+        body.child(note("Totals cover the full selected period. Up to 20 entries shown."));
       }
     } else if (this.details && this.requests().some(row => row.id === this.selected)) {
       const selected = this.requests().find(row => row.id === this.selected);
@@ -297,7 +419,7 @@ export default class MagpieDashboard extends View {
     } else {
       const groups = this.groups(), selectedGroup = groups.find(group => group.id === this.group);
       body.child(heading("Routing groups"));
-      if (!groups.length) body.child(note(snapshot.configuredGroups === null ? "Group configuration is unavailable. Connect the Magpie web service." : "No routing groups are configured."));
+      if (!groups.length) body.child(note(snapshot?.configuredGroups === null ? "Group configuration is unavailable. Connect the Magpie web service." : "No routing groups are configured."));
       else {
         const list = v_flex().id("magpie-panel-groups").min_w(0).max_h(168).overflow_y_scrollbar().gap(2);
         for (const [index, group] of groups.entries()) list.child(h_flex().id(`route-group-${index}`).role("button").tab_index(0)
@@ -326,7 +448,7 @@ export default class MagpieDashboard extends View {
     }
     return root.child(body).child(line())
       .child(h_flex().h(36).flex_none().px(10).gap(8).items_center()
-        .child(text(`Updated ${time(snapshot?.updatedAt)}${this.paused ? " · paused" : " · 10s"}`, t.dim, 11).flex_1().truncate())
+        .child(text(this.paused ? "Paused" : this.section === "routes" ? this.traceConnected ? "Live trace · connected" : "Live trace · reconnecting" : `Usage updated ${time(snapshot?.updatedAt)}`, t.dim, 11).flex_1().truncate())
         .child(button("page-pause", this.paused ? "Resume" : "Pause", this.paused, cx => { this.paused = !this.paused; if (!this.paused) this.refresh(cx); cx.notify(); })));
   }
 

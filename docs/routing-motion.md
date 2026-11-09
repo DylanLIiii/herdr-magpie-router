@@ -1,27 +1,50 @@
-# 路由小光点
+# 实时 Routing：从 Magpie 源码移植
 
-右侧面板使用一条公共细线连接平铺的模型节点，用一个小光点表示观察到的请求去向。它借鉴 Magpie 的路由可视化思路，保持 Herdr 原生控件与默认主题，不使用鸟形图标或多层账户树。
+本轮直接阅读本地 Git 仓库 `/root/.x-repo/github.com/yetone/magpie`，固定提交 **`cd0ba05c216c924ef7f962c25111c0293814b45b`**，将 Routing 的实时协议和请求动画状态机适配成原生 Herdr Mod。
 
-![原生 Herdr 小光点路由回放；合成演示数据](previews/sidebar/routing-motion.gif)
+![Herdr 实时 Routing 原生录屏；演示服务的动态 trace](previews/live-routing/live-routing.gif)
 
-## 表达什么
+## 对应源码
 
-- **In order**：依次尝试成员，失败后转向下一成员。
-- **Round robin**：不同请求轮流分配。动画播放的是服务实际返回的选择。
-- **By weight**：节点旁标出配置的 `×3`、`×1` 等权重，光点跟随观察到的请求；演示 fixture 提供 3:1 的合成分配。
-- 同时标识 Least used、By pace、Free first、Fastest、Lowest cost、Manual、Default 和自定义策略。面板不重新实现或改变服务的调度算法。
-- 最多显示四个平铺模型目的地，优先保留最近观察到的目标；更多节点会明确显示数量。嵌套分组不会伪装成正在回答的模型，实际出现的底层目的地可以显示为观察节点。观察节点不推断权重。
+| Magpie 本地源码 | 移植内容 |
+| --- | --- |
+| `internal/gui/assets/plugins/routing/client.js`：`poll()` | `seq` 游标长轮询、首次加载、隐藏后追赶、网关身份切换 |
+| 同文件：`play()`、`home()`、`stopPlays()` | 发送、等待、成功返回、失败返回、继续下一次尝试、取消 |
+| `internal/gui/trace.go` | `/api/gateway/trace?after=…&wait=1`，最多等待 25 秒 |
+| `internal/gateway/trace.go` | route/try 的 `done`、`seq`、`ids`、`by` 等协议字段 |
+| `internal/gui/assets/plugins/usage/page.js`：`renderUsage()` | 周期选择、缓存计入开关、输入/输出堆叠趋势、模型和 Agent 用量 |
+| `internal/gui/assets/app.js`：`cacheHitOf()` | 从分母排除缓存信息未知的请求，避免夸大命中率 |
 
-## 数据与动效
+许可证和原作者声明见 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
 
-首次加载历史记录时，实时模式显示静止光点。后续出现新的近期路由观察时，最多播放六个尝试；旧快照重复刷新不会重复制造流量。光点先沿公共线向下，再横向进入模型，失败尝试和后续回退按实际记录顺序播放。
+## 实时数据链路
 
-**Replay** 回放当前组最近的尝试，并显示 `History replay` 或 `Demo replay`。它不是实时流量计；整个面板仍按十秒周期读取快照。对历史的回放结束后，光点留在最后一个目标。进行中的最新观察可用轻微明暗变化表示等待。
+Herdr → 本机桥接 `/api/routing` → Magpie `/api/gateway/trace`。每次响应合并变化并推进 `seq`，随后立即建立下一次长轮询。该链路独立于 Usage/配置的十秒刷新，不再用快照回放模拟实时路由。
 
-运动使用 Herdr 原生 `.transition()`：纵向 240ms、横向 180ms，线性移动。每个事件停留后才播放下一个。只有语义阶段切换使用一次性 `cx.timer.after`，不以 JavaScript 定时器逐帧绘图。等待状态的明暗变化使用原生 `.loop("opacity")`，周期 1200ms；光点为 6px，配 12px 的低透明度外圈。
+首次加载只播放尚在进行的请求，已结束的历史进入列表。隐藏 Routing、切换 Files/Changes/Usage、查看详情或暂停后，不再发起新的 trace 请求；已经等待中的一次请求最多再存活至其超时。Herdr 0.1.10 的 fetch 没有 AbortSignal，因此不宣称隐藏时能立即取消宿主内已有的网络请求。桥接会在客户端连接关闭时取消它的上游请求。
 
-**Motion off** 将动效变为静态指示，并按 Mod 实例持久化；也可在 `config.js` 设置 `motion: false`。Herdr 0.1.10 没有向 Mod 暴露系统减少动态效果选项，因此使用明确的本地开关，不宣称自动读取系统偏好。暂停、断连、隐藏面板、切换到 Usage/详情或销毁实例时停止回放。选择分组和键盘导航本身不增加过渡。
+再次显示面板时读取隐藏期间的变化，只恢复尚未结束的请求。`ids` 清理已被网关丢弃的未完成记录；网关重启或更换进程时清空游标并读取完整 trace。连接错误明确显示，约三秒后重试。若本机桥接的 fetch 卡住超过 35 秒，会停止自动积累请求，提示手动 Refresh。
 
-## 验证
+## 光点状态
 
-测试覆盖权重映射、真实策略编码、分组过滤、回退顺序、四节点上限、首次历史静态呈现、重复快照去重、阶段顺序、关闭动画、隐藏/暂停取消以及分组切换后旧回调失效。`herdr-app check` 通过，动画在实际 Herdr 0.1.10 原生窗口录制并逐帧检查。GIF 中的记录均为合成示例；用户提供的参考截图未放入公开仓库。
+1. **Selecting**：请求到了路由器，尚未收到选中的模型。
+2. **Sending**：沿公共细线下行，再进入实际尝试的模型节点。
+3. **Held**：光点停在模型处，轻微明暗变化，直到该 attempt 的 `done` 变为 true。
+4. **Success**：等待整个 route 的 `done`，再沿线返回路由器并清理光点。
+5. **Failure / fallback**：光点以失败颜色返回路由器；只有上游增加下一次实际尝试时才再次出发。重试等待不会被本地定时器伪造。
+
+动画保留 Magpie 的生命周期语义，视觉压缩为平铺模型节点和小光点。为适合窄侧栏，线路分段使用 240ms 纵向和 180ms 横向原生 transition，移除鸟形和多层账户树。等待状态用原生 opacity loop；没有 JavaScript 逐帧绘图。
+
+最多同时显示四个光点和四个模型目标，其他请求保留在列表。默认跟随最新请求的路由组；点击组可固定查看，**Follow live** 恢复自动跟随。直接调用提供商的请求归入 Direct requests。权重模式展示配置的成员权重，但不在客户端重新运行调度算法。
+
+**Motion off** 保留静态线路与目标高亮，可按实例持久化；`config.js` 的 `motion: false` 可设为默认。Herdr 0.1.10 未暴露系统减少动态效果偏好，因此使用明确开关。
+
+## Usage
+
+沿用 Magpie 的 Today / 7 days / 30 days / All time、With cache / Without cache、缓存命中率、输入/输出堆叠趋势与 Models / Agents 维度。缓存命中率为 `cache_read / (input + cache_read + cache_write - cache_unknown)`；缺少必要字段时显示未知。
+
+为适应侧栏，趋势最多聚合成 28 根柱，保持计数之和；完整周期总量来自独立汇总 API。未定价调用明确提示，成本不当作订阅账单。账户凭据、提示词、原始错误和归档请求体不转发到 Mod。
+
+## 验证范围
+
+动态演示端点按 trace 协议持续产生 Selecting → Pending → Failure → Retry → Success 的状态，经过同一桥接、Herdr fetch 和原生状态机。原生 GIF 是该动态流的录屏，不是固定路线的 Replay。实际服务 IP/Web key 尚未提供，因此不宣称已验证用户的远端实例。测试和截图细节见 [实时验证记录](live-routing-verification.md)。

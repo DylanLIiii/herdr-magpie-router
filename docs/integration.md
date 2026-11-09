@@ -1,5 +1,7 @@
 # Magpie integration
 
+The current native Routing panel additionally uses `/api/routing` on the local bridge, forwarding Magpie's `/api/gateway/trace?after=<seq>&wait=1` with a 30-second upstream timeout. The 25-second long poll is independent of dashboard snapshots. Per-attempt `done`, route `done`, cursor resets, retained IDs and gateway takeover follow the local Magpie source at `cd0ba05c216c924ef7f962c25111c0293814b45b`. See [real-time semantics](routing-motion.md) and [verification](live-routing-verification.md). Account identifiers and raw bodies are removed before the mod receives trace data.
+
 The original local gateway integration was verified against upstream commit `c63c2136b27e21dd3232b14ceb6de894da93ebab` and the running local gateway on 2026-10-31. Remote web integration was added on 2026-11-09; see [remote layout and API documentation](layout.md) for its separate URL, cookie authentication, configured groups and aggregate usage.
 
 ## Configuration

@@ -1,13 +1,14 @@
 import { MagpieSource } from './magpie.js';
 import { createReader, SourceError } from './upstream.js';
 import { normalizeSnapshot } from './normalize.js';
+import { readTrace } from './trace.js';
 
 export const PERIODS = ['today', '7d', '30d', 'all'];
 const list = value => Array.isArray(value) ? value.filter(item => item && typeof item === 'object') : [];
 const text = value => typeof value === 'string' ? value.slice(0, 300) : '';
 const number = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 const fulfilled = result => result.status === 'fulfilled' ? result.value : null;
-const totals = value => Object.fromEntries(['calls', 'errors', 'input', 'output', 'cache_read', 'cache_write', 'cost', 'unpriced']
+const totals = value => Object.fromEntries(['calls', 'errors', 'input', 'output', 'cache_read', 'cache_write', 'cache_unknown', 'cache_unknown_calls', 'reasoning', 'retried', 'cost', 'unpriced']
   .map(key => [key, number(value?.[key])]));
 
 // Deliberately project fields: management responses also contain account names,
@@ -16,6 +17,9 @@ export function usageSummary(value, period) {
   if (!value || value.period !== period || number(value.calls) === null) throw new SourceError('Magpie usage summary is unavailable or incompatible');
   return {
     period, since: text(value.since), ...totals(value),
+    bucket: ['hour', 'day', 'week'].includes(value.bucket) ? value.bucket : '',
+    series: list(value.series).slice(-366).map(point => ({ label: text(point.label), time: text(point.time), ...totals(point) })),
+    agents: list(value.agents).slice(0, 20).map(agent => ({ name: text(agent.name || agent.id), ...totals(agent) })),
     models: list(value.models).map(row => ({ model: text(row.model || row.name || row.id), provider: text(row.provider), ...totals(row) }))
       .sort((a, b) => (b.calls || 0) - (a.calls || 0)).slice(0, 20),
   };
@@ -107,6 +111,11 @@ export class DashboardSource {
       snapshot.routeWarnings = warnings;
       return snapshot;
     });
+  }
+
+  trace(options = {}) {
+    if (!this.read) throw new SourceError('Configure the Magpie service before connecting live routing.');
+    return readTrace(this.read, { ...options, web: this.web });
   }
 
   async dashboard(period = 'today', zone = '') {

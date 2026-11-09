@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { demoSnapshot, demoDashboard } from './demo.js';
 import { DashboardSource, PERIODS } from './dashboard.js';
+import { demoTrace } from './demo-trace.js';
+import { setTimeout as delay } from 'node:timers/promises';
 
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
@@ -49,6 +51,27 @@ export function createApp({ source = new DashboardSource(), port = 4317 } = {}) 
     let url;
     try { url = new URL(request.url, `http://127.0.0.1:${port}`); }
     catch { return send(400, { error: 'Invalid URL' }); }
+    if (url.pathname === '/api/routing') {
+      const after = Number(url.searchParams.get('after') || '0'), epoch = url.searchParams.get('epoch') || '';
+      const mode = url.searchParams.get('mode') || 'live', wait = url.searchParams.get('wait') === '1';
+      if (!Number.isSafeInteger(after) || after < 0 || !/^[a-zA-Z0-9_-]{0,64}$/.test(epoch) || !['live', 'demo'].includes(mode)) {
+        return send(400, { error: 'Invalid routing cursor or mode' });
+      }
+      const abort = new AbortController();
+      response.on('close', () => { if (!response.writableEnded) abort.abort(); });
+      try {
+        if (mode === 'demo') {
+          if (wait) await delay(500, null, { signal: abort.signal });
+          return send(200, demoTrace());
+        }
+        if (!source.configured) return send(503, { error: 'Configure the Magpie web service to watch live routing.' });
+        const frame = await source.trace({ after, epoch, wait, signal: abort.signal });
+        if (!response.destroyed) return send(200, { ...frame, mode: 'live' });
+      } catch (error) {
+        if (!response.destroyed) return send(503, { error: error.publicMessage || 'Live routing is unavailable. Reconnecting…' });
+      }
+      return;
+    }
     if (url.pathname === '/api/dashboard') {
       const mode = url.searchParams.get('mode') || 'live';
       const period = url.searchParams.get('period') || 'today';

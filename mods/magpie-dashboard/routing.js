@@ -1,4 +1,5 @@
 const STRATEGIES = {
+  direct: ["Direct", "Requests sent directly to a provider, outside routing groups."],
   order: ["In order", "Tries members in order; failures move to the next."],
   rotate: ["Round robin", "Rotates the destination between requests."],
   weight: ["By weight", "Shares requests by member weight; the dot follows observed choices."],

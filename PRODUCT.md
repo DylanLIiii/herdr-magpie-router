@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Implementation choice within the requested local repository: browser-native JavaScript modules and CSS, a small Node.js 22+ local bridge, and no production dependencies. Herdr integration will follow its current documented mod interface. No deployment is requested.
+Native Herdr GPUI JavaScript mod with a small Node.js 22+ loopback bridge and no production dependencies; a browser companion remains available. The public repository is DylanLIiii/herdr-magpie-router. Herdr draws the UI and interpolates motion natively.
 
 ## Users
 
@@ -20,7 +20,7 @@ Make Magpie routing legible at a glance, with enough detail to investigate indiv
 
 ## Operating Context
 
-The user supplied Herdr and https://github.com/yetone/magpie as integration references. The local machine has Node.js and a temporary Herdr 0.1.10 binary for native validation; the user's desktop configuration is absent. The requested deliverable is a right sidebar in the default workspace. Shipped layouts reject structural additions, so installation clones main via Herdr and adds one block to its personal copy, preserving the terminal workspace and theme.
+The user supplied Herdr and https://github.com/yetone/magpie as integration references. The local machine has Node.js and a temporary Herdr 0.1.10 binary for native validation; the user's desktop configuration is absent. The requested deliverable is a right sidebar in the default workspace. Shipped layouts reject structural additions, so installation clones main via Herdr. It adds Routing to the existing Files/Changes panel stack and clones the installed tabs mod to add a Routing toggle immediately after Changes, preserving the terminal workspace and theme.
 
 ## Capabilities and Constraints
 
@@ -30,7 +30,8 @@ The user supplied Herdr and https://github.com/yetone/magpie as integration refe
 - Keep Magpie credentials on the local bridge, outside the browser and repository.
 - Responsive operation in a desktop window, embedded panel, and narrow preview.
 - The user clarified that the requested surface is a right sidebar, not the earlier standalone Workspace / Magpie page layout. Match Herdr's default theme and Files / Changes panel styling. Use a compact Routes / Usage switch inside a 368px panel, leaving terminals visible. The prior page variant is retained only for compatibility. No target Magpie IP has been supplied yet.
-- Focus on requests, route selection, provider outcomes, timing and usage where upstream exposes them. These are implementation defaults inferred from the request.
+- The user explicitly requested a source-based port of Magpie Routing/Usage, real-time route display, and a Routing toggle after Files and Changes. Read upstream local Git commit cd0ba05c216c924ef7f962c25111c0293814b45b; port long-poll seq semantics and selecting/sending/held/return/fallback states. Snapshot replay must not be presented as live traffic.
+- Usage follows Magpie's period, cache-inclusion, cache-hit and stacked input/output chart semantics, bounded for the sidebar.
 
 ## Evidence on Hand
 

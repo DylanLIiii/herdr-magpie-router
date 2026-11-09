@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { demoDashboard } from '../server/demo.js';
 import { RouteSignal, strategyInfo, destinationKey, rowY } from '../mods/magpie-dashboard/routing.js';
+import { TraceStore, LiveRouting } from '../mods/magpie-dashboard/live-routing.js';
+import { tokenTotal, cacheHit, usageBars } from '../mods/magpie-dashboard/usage.js';
 
 async function host(fetchImpl, props = {}, clock = Date) {
   let source = await readFile(new URL('../mods/magpie-dashboard/main.js', import.meta.url), 'utf8');
@@ -22,8 +24,8 @@ async function host(fetchImpl, props = {}, clock = Date) {
   let active = 'magpie-dashboard';
   let focused = false;
   let panelHidden = false;
-  const context = { fetch: fetchImpl, Date: clock, Intl, View: class {}, div: element, h_flex: element, v_flex: element,
-    RouteSignal, strategyInfo, destinationKey, rowY,
+  const context = { fetch: url => url.includes('/api/routing') ? Response.json({ mode: new URL(url).searchParams.get('mode'), seq: 0, epoch: 'fixture', mine: true, routes: [], ids: [] }) : fetchImpl(url), Date: clock, Intl, View: class {}, div: element, h_flex: element, v_flex: element,
+    RouteSignal, strategyInfo, destinationKey, rowY, TraceStore, LiveRouting, tokenTotal, cacheHit, usageBars,
     config: { endpoint: 'http://127.0.0.1:4317/api/dashboard', modName: 'magpie-panel' },
     theme: () => ({}), layout: () => ({ id: 'magpie-pages', active, children: [{ id: 'panel', type: 'block', hidden: panelHidden, content: { mod: 'magpie-panel' } }] }),
     hostProps: () => props, nextCommand: () => new Promise(() => {}) };
@@ -56,7 +58,7 @@ test('dashboard consumes actual host props, renders routes and usage, and button
   h.mod.render();
   h.controls.get('route-motion').on_click({}, h.cx);
   assert.equal(h.mod.motion, false);
-  assert.equal(h.mod.signal.moving, false);
+  assert.equal(h.mod.live.dots.size, 0);
   h.controls.get('request-3').on_click({}, h.cx);
   assert.equal(h.mod.details, true);
   assert.equal(h.mod.selected, h.mod.requests()[3].id);
@@ -122,7 +124,7 @@ test('watchdog pauses a stalled request and rejects its late result after retry'
     if (++calls === 1) { await new Promise(resolve => { release = resolve; }); return response(url, { marker: 'old' }); }
     return response(url, { marker: 'new' });
   }, {}, clock);
-  now += 15000; h.timers[0](h.cx);
+  now += 15000; h.timers[1](h.cx);
   assert.equal(h.mod.loading, false);
   assert.equal(h.mod.paused, true);
   assert.match(h.mod.error, /15 seconds/);

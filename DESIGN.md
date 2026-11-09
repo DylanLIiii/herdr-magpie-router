@@ -256,6 +256,8 @@ At the compact breakpoint, replace the graph with three stacked bordered steps j
 
 ### Native Herdr panel
 
+The current native surface shares the default right panel stack with Files and Changes. A cloned installed tab bar adds Routing after Changes and reuses the host's per-space panel state. The panel uses the host's 42px header, 13px body, 14px padding, 10px frame radius and theme border. Routing is event-driven: small native light dots wait at model destinations until upstream completion, returning for success or fallback. Usage adds a compact stacked input/output trend, cache inclusion and Models/Agents breakdown. These are native extensions of the existing system; the web tokens above remain unchanged. See `docs/routing-motion.md` for timing and source semantics.
+
 Resolve `t.surface`, `t.foreground`, `t.muted`, `t.dim`, `t.raised`, `t.border`, `t.selected`, `t.accent`, and `t.hover` from `theme()`. Native buttons use raised or selected backgrounds with muted or accent text; hover uses `t.hover`. Selected requests use `t.selected` and an accent border. Success resolves to `t.done`, failure to `t.blocked`, pending to `t.working`, and unknown to `t.muted`. The same source honesty and request-to-attempt inspection apply, expressed through the host theme. The sidecar examples intentionally represent browser components only; browser HTML cannot preview native GPUI rendering faithfully.
 
 ## Do's and Don'ts

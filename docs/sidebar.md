@@ -1,37 +1,56 @@
-# Magpie：Herdr 右侧侧边栏
+# Routing：Herdr 右侧实时面板
 
-在 Herdr 默认工作区右侧添加一个原生 Magpie 面板。默认宽度 **368px**，左侧空间列表与中央终端继续保留。面板内切换 **Routes / Usage**。Herdr 保护自带布局，因此先复制 `main` 为 `main-magpie`，再仅在其右侧添加面板；界面结构和主题沿用默认工作区。
+在 Herdr 标签栏的 **Files、Changes 右侧**增加 **Routing** 按钮。点击打开实时路由/用量面板，再次点击关闭；Files、Changes 和 Routing 共用原有右侧区域，中央终端保持可见。
 
-外观对照 Herdr 自带 Files / Changes 面板：42px 标题栏、13px 正文、14px 内容边距、10px 外框圆角、7px 列表选中圆角，以及细主题边框。背景、文字、选中、悬停和状态色全部读取 `theme()`，字体继承 Herdr。面板跟随用户明暗主题，没有固定的品牌配色。
+样式继承 Herdr 默认主题，与 Files / Changes 使用相同的标题栏、字体、边框和选中状态。面板默认约 368px，支持拖动调整和明暗主题。动画和 Usage 行为移植自 Magpie 本地源码，详见 [实现来源与语义](routing-motion.md)。
 
 ## 安装
 
-在运行 Herdr 窗口的电脑上，从仓库根目录执行：
+在运行 Herdr 窗口的电脑上，需要 Node.js 22 或更新版本。在仓库根目录执行：
 
 ```sh
 npm run install:panel
 herdr-app check ~/.config/herdr-app/mods/magpie-panel
 herdr-app do layout.clone --name main --as main-magpie
 npm run attach:panel
+herdr-app check ~/.config/herdr-app/mods/magpie-panel-tabs
 ```
 
-`install:panel` 添加 `mods/magpie-panel/` 中的 `main.js`、`routing.js`、`config.js`、`mod.json`，同名目录会被拒绝。`layout.clone` 是 Herdr 自带命令，复制并切换到默认布局的个人副本，保留原有窗口外观。`attach:panel` 只向该副本的 `work-body` 添加一个右侧块，并备份修改前的 JSON；已有同名面板时不会重复添加。
+然后点击标签栏的 **Routing**。
 
-已存在 `main-magpie` 时跳过克隆命令，使用 `herdr-app do layout.switch --name main-magpie`，然后执行 `attach:panel`。安装过程不修改自带 `main`、设置、快捷键或 Magpie 路由。
+Herdr 保护自带布局与 Mod，故 `layout.clone` 创建默认工作区的个人副本。`attach:panel` 读取目标机器安装的 `mods/tabs`，复制为 `magpie-panel-tabs`，仅增加 Routing 按钮和面板状态记忆；自带的标签拖动、窗口按钮及 Files/Changes 行为继续保留。
 
-实测 Herdr 0.1.10 不会向自带布局自动停靠新 Mod，因此不能只复制目录，也不要用 `mod.open`（它打开浮层）。上述显式挂载步骤已经在原生窗口验证。
+面板放入原有 `panel-body` stack。已经安装早期独立右侧栏时，挂载脚本会移除副本中该 Mod 的旧侧栏块，再加入同一个面板栈，避免重复。它先备份个人布局，保留原有主题、Files/Changes 状态、设置与快捷键。再次执行不会重复插入 Routing。
 
-可指定配置目录、面板名、宽度或本地桥接端口：
+如果 `main-magpie` 已存在，跳过 clone，使用 `herdr-app do layout.switch --name main-magpie`。如果个人标签栏已被你修改，脚本会拒绝覆盖；可以为新安装选择另一个名称与新的布局副本。
+
+## 从旧版本升级
+
+旧 Mod 安装器默认拒绝覆盖，便于保留本地配置。最稳妥的方法是在更新仓库后安装一个新名称：
 
 ```sh
-npm run install:panel -- --home /path/to/herdr-app --name my-magpie --width 400 --endpoint http://127.0.0.1:14317/api/dashboard
+git pull
+npm run install:panel -- --name magpie-routing
+herdr-app check ~/.config/herdr-app/mods/magpie-routing
+herdr-app do layout.clone --name main --as main-routing
+npm run attach:panel -- --name magpie-routing --layout main-routing
+herdr-app check ~/.config/herdr-app/mods/magpie-routing-tabs
 ```
 
-挂载时匹配相同的参数，例如 `npm run attach:panel -- --home /path/to/herdr-app --layout main-magpie --name my-magpie --width 400`。`HERDR_APP_HOME` 同样有效。`--endpoint` 是**本地桥接**地址；运行中的 Magpie 服务地址配置在桥接 `.env`，两者不要混淆。安装后的 `config.js` 可用于更改桥接地址；其中不包含 Magpie 凭据。
+重启本地 Node 桥接，以加载新增的 `/api/routing` 实时端点。旧布局可以继续保留，确认新版本后再自行整理。
 
-## 连接指定 IP 的 Magpie
+## 自定义安装位置
 
-桥接需要 Node.js 22 或更新版本，运行时没有第三方依赖。将 `.env.example` 复制为 `.env`（已有则编辑），配置：
+```sh
+npm run install:panel -- --home /path/to/herdr-app --name my-routing --width 400 --endpoint http://127.0.0.1:14317/api/dashboard
+npm run attach:panel -- --home /path/to/herdr-app --layout main-magpie --name my-routing --width 400
+```
+
+安装和挂载均支持 `HERDR_APP_HOME`。桥接 URL 写入安装后 `config.js`，面板仅通过布局显式挂载，不会自动在其他个人布局里再停靠一个副本。原有面板宽度被保留，首次缺省时使用传入宽度。对已运行的布局可用 `herdr-app do layout.resize --id panel --px 400` 调整。
+
+## 连接 Magpie 服务
+
+将 `.env.example` 复制为 `.env`（已有则编辑）：
 
 ```dotenv
 MAGPIE_WEB_URL=http://<MAGPIE_SERVICE_IP>:3430
@@ -39,27 +58,26 @@ MAGPIE_WEB_KEY=<WEB_SERVICE_ACCESS_KEY>
 PORT=4317
 ```
 
-然后在运行 Herdr 窗口的电脑上执行：
+然后运行：
 
 ```sh
 npm start
 ```
 
-`MAGPIE_WEB_URL` 要使用你的 Magpie **Web 服务**实际地址和端口，通常为 3430；模型网关通常为 3425。`MAGPIE_WEB_KEY` 是 Web 服务访问密钥，不是模型网关 Bearer key。密钥仅留在 `.env` 与桥接进程中；`.env` 已被 Git 忽略。反向代理或 SSH 转发改变端口时，设置 `MAGPIE_WEB_COOKIE_PORT` 为 Magpie Web 进程实际监听的内部端口。
+`MAGPIE_WEB_URL` 是远程 Magpie **Web 服务**的实际地址和端口，通常为 3430；模型网关通常为 3425。Web key 与网关 Bearer key 不通用。密钥只在本地 `.env` 和桥接进程中，Git 忽略 `.env`。
 
-桥接只监听本机回环地址，使用固定配置的远端，仅发出 GET 读取请求。远端记录不会与本机路由历史混合。跨不可信网络时使用 HTTPS 或 SSH 转发。
+反向代理/SSH 转发改变端口时，设置 `MAGPIE_WEB_COOKIE_PORT` 为 Magpie Web 进程实际监听的内部端口。跨不可信网络使用 HTTPS 或 SSH 转发。本项目不更改服务监听、路由或认证设置。
 
-## 面板内容
+桥接监听本机回环地址，只读取固定配置服务。实时 trace 使用带游标的长轮询；Usage/分组配置约十秒刷新，分组有最多三十秒缓存。隐藏、暂停或切换到 Files/Changes/Usage 后停止建立新的 trace 请求；再次显示只恢复未完成请求的动画。旧版本若没有 trace 接口，会明确显示实时路由不可用，不用快照回放冒充实时数据。
 
-- **Routes**：路由分组、策略和最多四个平铺模型节点。小光点沿细线到达实际观察到的模型，权重模式标出成员权重；Replay 明确回放历史，Motion off 保留静态指示。最近 24 小时内最多 40 条可见请求，点击后进入面板内详情，查看模型、提供商、耗时、token、回退和尝试记录，再点击 Back to requests 返回。详见 [路由动效](routing-motion.md)。
-- **Usage**：Today、7 days、30 days、All time；请求数、错误数、输入/输出、缓存 token、Magpie 报告的 USD 成本，以及最多 20 个模型的统计。总量来自汇总 API，与最近请求样本独立。缺失值为 `—`，真实的零保持为零。
-- **刷新与状态**：显示服务地址、连接状态、最后更新时间；每 10 秒刷新，可暂停或手动刷新。路由分组配置最多缓存 30 秒。断连保留带时间标识的旧数据；部分接口不可用会提示。隐藏面板停止自动读取，重新显示后在下一次定时回调恢复。
-- **Demo**：仅在主动选择时展示明确标识的合成数据，默认连接实时服务。
+## 内容与操作
 
-按钮支持 Tab 和 Enter/Space。面板有焦点时，G/U 切换路由/用量，R 刷新，Space 暂停，D 切换演示，1–4 切换用量周期，↑↓ 选择请求，←→ 选择分组，Enter 展开详情，Esc 返回。快捷键不占用终端的全局按键。
+- **Routes**：自动跟随当前组，平铺模型节点与最多四个实时光点。发送后等待上游完成；失败返回路由器并跟随下一次真实尝试。点击组固定查看，Follow live 恢复跟随。
+- **Usage**：周期、缓存计入选项、缓存命中率、输入/输出堆叠趋势、模型和 Agent 统计。缺失值显示 `—`，真实零保持零；未定价请求明确提示。
+- **请求详情**：最近可见的 40 条请求，点击查看模型、提供商、耗时、token、实际尝试和回退；Back to requests 返回。
+- **Motion off**：保持静态路由高亮，停止动效。Pause 暂停自动读取，Refresh 手动更新。
+- **Demo**：显式合成数据和动态 trace，用于演示生命周期；默认连接实时服务。
 
-底层 API、数据字段和认证方式见 [接口与连接说明](layout.md#verified-apis)。旧的 `install:layout` 是整页版本，本次侧边栏安装使用 **`install:panel`**。
+Tab 焦点与 Enter/Space 操作原生控件。面板有焦点时：G/U 切换，R 刷新，Space 暂停，D 切换 Demo，1–4 选择用量周期，↑↓ 选择请求，←→ 选择分组，Enter 详情，Esc 返回；不会增加全局终端快捷键。
 
-## 验证
-
-安装后运行 `herdr-app check`，再在 Herdr 中确认右侧位置、主题和服务连接。原生截图与本轮测试结果见 [侧边栏验证](sidebar-verification.md)。截图均为演示数据，真实服务地址和访问密钥仍需配置。
+安装后的模块包括 `main.js`、`routing.js`、`live-routing.js`、`usage.js`、`config.js`、`mod.json`。个人标签栏复制了安装版本自己的资源和许可证。实际源代码端点、版权和适配差异见 [第三方声明](../THIRD_PARTY_NOTICES.md)。
