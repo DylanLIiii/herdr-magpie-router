@@ -9,3 +9,5 @@ playwright-report/
 .impeccable/review/
 .impeccable/*.local.json
 gpui-kit.d.ts
+connection.json
+connection.json.*.tmp

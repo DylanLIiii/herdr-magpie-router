@@ -8,7 +8,7 @@ A native right panel opened by **Routing**, placed immediately after **Files** a
 
 Routing shares the existing `panel-body` stack with Files and Changes. The toolbar button toggles it closed when already selected; otherwise it selects Routing and opens the panel. The tab bar remembers the chosen panel per space using its existing logic.
 
-The panel uses a 42px header, 13px body, 14px content padding, 10px frame radius and 1px theme border, like the shipped Files/Changes panels. Routes / Usage are compact internal tabs. Service, connection and demo states are explicit; Pause and the last update live in the footer.
+The panel uses a 42px header, 13px body, 14px content padding, 10px frame radius and 1px theme border, like the shipped Files/Changes panels. Routes / Usage are compact internal tabs. Service, connection and demo states are explicit; Pause and the last update live in the footer. Connection in the header opens native URL, masked Web key and optional internal-port inputs, with Test connection and Save & connect.
 
 Routes shows routing groups and a flat model diagram: a 1px common rail, up to four model nodes, and up to four concurrent 6px light dots with a subtle 12px outer ring. Strategy labels and member weights are preserved. The request list below shows up to 40 recent requests; click one for timing, usage and attempt detail. No account hierarchy or bird illustration is required.
 
@@ -28,6 +28,8 @@ Follow live tracks the newest request's group; selecting a group pins it. Direct
 - `live-routing.js`: `TraceStore` and request animation state machine adapted from Magpie `poll/play/home/stopPlays`.
 - `routing.js`: strategy labels and bounded flat model projection. The older replay helper remains for compatibility tests but is not used for the live panel.
 - `usage.js`: cache arithmetic and token timeline aggregation adapted from Magpie Usage.
+- `connection.js`: native retained inputs; write-only key, separate test/save, no credentials in localStorage. Save clears current data/generations and reconnects without restart.
+- `server/connection.js`: validates, tests and atomically persists one active connection as a 0600 file; keeps old connection on write failure and rejects stale writers. The local settings API requires a per-process token, JSON, Origin/Host checks and a matching revision.
 - `server/trace.js`: allowlisted lifecycle projection, 30s read deadline for Magpie's 25s long poll, gateway identity hashing and reset detection.
 - `server/dashboard.js`: groups and full-period usage projections; `server/index.js` serves `/api/routing` and `/api/dashboard` on loopback.
 - `scripts/install-panel.js`: installs a `place: none` Mod for explicit stack placement; config holds only local bridge endpoint/name/motion.
@@ -39,7 +41,7 @@ Upstream source was read from local Git checkout `/root/.x-repo/github.com/yeton
 
 Herdr has no DOM/CSS/webview. Use the same live semantics with GPUI primitives. Never retain a stale callback context. GPUI fetch cannot abort one pending request; hide stops the next poll, while server disconnect cancels upstream work. Timeouts must not accumulate indefinitely. Do not show ten-second snapshot playback as real time.
 
-The remote service URL/key belong only in bridge `.env`; its web cookie uses the internal listen port. Gateway Bearer keys do not authenticate the web API. Do not publish accounts, prompts, request archives or raw error bodies. The user has not supplied a real target service yet.
+Users enter the remote URL/key through Connection; they persist in the bridge's private settings file, with optional `.env` fallback. The key field is masked and never populated with an existing key. Keeping a blank key is allowed only for the same service origin. Its web cookie uses the internal listen port. Gateway Bearer keys do not authenticate the web API. Do not publish accounts, prompts, request archives or raw error bodies. The user has not supplied a real target service yet.
 
 Shipped layouts and mods are protected. `mod.open` is an overlay, not the toolbar toggle. Clone first. The installer detects the known installed tab-bar structure and refuses to guess on incompatible source. The user’s theme, Files/Changes and keyboard bindings stay intact.
 

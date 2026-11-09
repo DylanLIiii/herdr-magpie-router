@@ -27,7 +27,7 @@ The user supplied Herdr and https://github.com/yetone/magpie as integration refe
 - Actual integration must use verified upstream interfaces.
 - The interface must distinguish demonstration data, live data, stale data, and connection failures.
 - Read-only Magpie observability; never mutate Magpie routes. Herdr installation may add the requested sidebar to a personal clone, with a backup. Preserve shipped layouts, settings and keybindings.
-- Keep Magpie credentials on the local bridge, outside the browser and repository.
+- Provide native Connection settings for Magpie URL and Web access key. Keys are masked during entry, sent only to the loopback bridge, persisted in a private 0600 settings file, and never read back to the mod, browser or repository. Test is non-mutating; Save replaces the active source immediately and invalidates old responses.
 - Responsive operation in a desktop window, embedded panel, and narrow preview.
 - The user clarified that the requested surface is a right sidebar, not the earlier standalone Workspace / Magpie page layout. Match Herdr's default theme and Files / Changes panel styling. Use a compact Routes / Usage switch inside a 368px panel, leaving terminals visible. The prior page variant is retained only for compatibility. No target Magpie IP has been supplied yet.
 - The user explicitly requested a source-based port of Magpie Routing/Usage, real-time route display, and a Routing toggle after Files and Changes. Read upstream local Git commit cd0ba05c216c924ef7f962c25111c0293814b45b; port long-poll seq semantics and selecting/sending/held/return/fallback states. Snapshot replay must not be presented as live traffic.

@@ -37,7 +37,7 @@ npm run attach:panel -- --name magpie-routing --layout main-routing
 herdr-app check ~/.config/herdr-app/mods/magpie-routing-tabs
 ```
 
-重启本地 Node 桥接，以加载新增的 `/api/routing` 实时端点。旧布局可以继续保留，确认新版本后再自行整理。
+重启本地 Node 桥接，以加载当前的 `/api/routing` 和 `/api/connection` 端点。旧布局可以继续保留，确认新版本后再自行整理。
 
 ## 自定义安装位置
 
@@ -50,7 +50,9 @@ npm run attach:panel -- --home /path/to/herdr-app --layout main-magpie --name my
 
 ## 连接 Magpie 服务
 
-将 `.env.example` 复制为 `.env`（已有则编辑）：
+在 **Routing → Connection** 中填写地址和 Web access key，选择 **Test connection** 检查，之后 **Save & connect** 保存并立即连接。Key 只保存在桥接的私有配置中；重启会恢复，界面不回显原值。无需因修改连接而重启。详见 [连接设置](connection.md)。
+
+也可以用 `.env` 作为首次配置，保存的 Connection 设置会优先于环境值。将 `.env.example` 复制为 `.env`（已有则编辑）：
 
 ```dotenv
 MAGPIE_WEB_URL=http://<MAGPIE_SERVICE_IP>:3430
@@ -64,7 +66,7 @@ PORT=4317
 npm start
 ```
 
-`MAGPIE_WEB_URL` 是远程 Magpie **Web 服务**的实际地址和端口，通常为 3430；模型网关通常为 3425。Web key 与网关 Bearer key 不通用。密钥只在本地 `.env` 和桥接进程中，Git 忽略 `.env`。
+`MAGPIE_WEB_URL` 是远程 Magpie **Web 服务**的实际地址和端口，通常为 3430；模型网关通常为 3425。Web key 与网关 Bearer key 不通用。密钥只持久化在桥接的私有配置文件或可选 `.env` 中；已存密钥不返回给 Mod。Git 忽略 `.env` 和 `connection.json`。
 
 反向代理/SSH 转发改变端口时，设置 `MAGPIE_WEB_COOKIE_PORT` 为 Magpie Web 进程实际监听的内部端口。跨不可信网络使用 HTTPS 或 SSH 转发。本项目不更改服务监听、路由或认证设置。
 
@@ -80,4 +82,4 @@ npm start
 
 Tab 焦点与 Enter/Space 操作原生控件。面板有焦点时：G/U 切换，R 刷新，Space 暂停，D 切换 Demo，1–4 选择用量周期，↑↓ 选择请求，←→ 选择分组，Enter 详情，Esc 返回；不会增加全局终端快捷键。
 
-安装后的模块包括 `main.js`、`routing.js`、`live-routing.js`、`usage.js`、`config.js`、`mod.json`。个人标签栏复制了安装版本自己的资源和许可证。实际源代码端点、版权和适配差异见 [第三方声明](../THIRD_PARTY_NOTICES.md)。
+安装后的模块包括 `main.js`、`routing.js`、`live-routing.js`、`usage.js`、`connection.js`、`config.js`、`mod.json`。个人标签栏复制了安装版本自己的资源和许可证。实际源代码端点、版权和适配差异见 [第三方声明](../THIRD_PARTY_NOTICES.md)。

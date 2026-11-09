@@ -2,7 +2,7 @@
 
 在 Herdr 的 **Files、Changes 右侧添加 Routing 按钮**，开关指定 Magpie 服务的实时路由与用量面板。采用 Herdr 默认主题，中央终端继续保留。
 
-在 `.env` 设置 `MAGPIE_WEB_URL` 和 `MAGPIE_WEB_KEY`，启动本地桥接后运行 **`npm run install:panel`**。复制默认工作区并挂载面板后，侧栏与中央终端同时显示。完整安装、端口与认证说明见 [右侧面板](docs/sidebar.md)。
+启动本地桥接，安装面板后，在 **Routing → Connection** 填写 Magpie 服务地址和 Web key。支持测试连接、保存后立即切换及重启恢复。完整安装说明见 [右侧面板](docs/sidebar.md)，配置说明见 [连接设置](docs/connection.md)。
 
 ![Files / Changes / Routing 共用 Herdr 右侧面板；原生截图，合成演示 trace](docs/previews/live-routing/routes-dark.png)
 
@@ -17,9 +17,8 @@
 ```sh
 git clone https://github.com/DylanLIiii/herdr-magpie-router.git
 cd herdr-magpie-router
-cp .env.example .env
-# 在 .env 配置 MAGPIE_WEB_URL 和 MAGPIE_WEB_KEY
 npm start
+# 按下方步骤安装面板，再在 Routing → Connection 配置服务地址和 Key
 ```
 
 原生侧边栏默认实时模式；Demo 按钮提供明确标识的合成数据预览。保留的网页伴侣可在 <http://127.0.0.1:4317> 独立打开，默认演示模式。
@@ -43,7 +42,9 @@ npm start
 
 ## 连接 Magpie
 
-复制 [.env.example](.env.example) 为 `.env`，配置后重启。凭据只由本地 Node.js 进程读取，不发送到浏览器。具体接口兼容性见 [integration.md](docs/integration.md)。
+在 **Routing → Connection** 设置 **Magpie Web URL** 和 **Web access key**，可先 Test connection，再 Save & connect。Key 用密码框输入，仅保存在本机桥接的私有配置文件，不回显已存值；更换地址需要提供新 Key。保存立即作用于 Routing 和 Usage。
+
+同一地址留空 Key 会保留原值。`.env` 仍可作为初始配置，已保存连接优先。详见 [连接设置](docs/connection.md) 和 [接口说明](docs/integration.md)。
 
 ## 安装到 Herdr
 
@@ -69,7 +70,7 @@ npx playwright install chromium
 npm run test:ui
 ```
 
-如果已有 Chromium，可以设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/to/chrome`。测试覆盖上游数据适配、凭据隔离、只读边界和主要界面操作。
+如果已有 Chromium，可以设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/to/chrome`。测试覆盖上游数据适配、凭据隔离、远端只读边界、本机配置保存和主要界面操作。
 
 主要目录：`public/` 是浏览器界面，`server/` 是本地只读数据桥，`mods/magpie-dashboard/` 是当前原生面板，`scripts/install-panel.js` 负责安装，`test/` 是测试，`docs/` 是接口说明与原生截图。
 

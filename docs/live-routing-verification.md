@@ -1,5 +1,7 @@
 # 实时 Routing 验证
 
+后续新增原生 URL / Web key 设置、测试与即时连接，当前 70 项 Node 测试通过；对应表单验证和截图见 [连接设置](connection.md)。以下保留实时 Routing 移植阶段的验证记录。
+
 验证日期：2026-11-09。宿主为官方 Herdr App 0.1.10 Linux，独立 Xvfb 显示、`HERDR_APP_HOME`、XDG 路径与 `HC_SESSION`。用户现有终端和桌面设置未用于测试。
 
 ## 源码依据

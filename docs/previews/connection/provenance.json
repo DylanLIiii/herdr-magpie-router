@@ -1,0 +1,13 @@
+{
+  "capturedOn": "2026-11-09",
+  "application": "Herdr App 0.1.10 Linux, native GPUI under isolated Xvfb",
+  "method": "herdr-app shot after actual X11 mouse and keyboard input",
+  "data": "Synthetic authenticated Magpie API fixture at loopback port 14340; the masked key is a test-only credential, not a user's service key",
+  "review": "Each image opened and reviewed in the implementation session",
+  "images": {
+    "tested-dark.png": { "width": 1440, "height": 1000, "panelWidth": 320, "state": "URL and masked key entered, Test connection succeeded" },
+    "connected.png": { "width": 1440, "height": 1000, "panelWidth": 320, "state": "Save & connect returned to live Routing without restarting the bridge" },
+    "saved-light.png": { "width": 1440, "height": 1000, "panelWidth": 320, "state": "Connection reopened in light theme; URL restored, saved key not returned to input" }
+  },
+  "additionalVerification": "Restarted isolated bridge without env URL/key, confirmed saved service restored, settings mode 0600 and key absent from GET metadata"
+}

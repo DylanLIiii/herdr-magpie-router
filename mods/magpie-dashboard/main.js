@@ -5,6 +5,7 @@ import config from "./config.js";
 import { strategyInfo, destinationKey, rowY } from "./routing.js";
 import { TraceStore, LiveRouting } from "./live-routing.js";
 import { tokenTotal, cacheHit, usageBars } from "./usage.js";
+import { ConnectionForm } from "./connection.js";
 
 const PERIODS = [["today", "Today"], ["7d", "7 days"], ["30d", "30 days"], ["all", "All time"]];
 const plain = (value, max = 100) => {
@@ -51,6 +52,11 @@ export default class MagpieDashboard extends View {
     this.queued = false;
     this.error = "";
     this.generation = 0;
+    this.connectionOpen = false; this.connectionRevision = null;
+    this.connection = new ConnectionForm(this.endpoint, (info, next) => this.useConnection(info, next), next => {
+      this.connectionOpen = false; this.traceCaught = true; this.focus.focus();
+      if (this.traceVisible()) this.pollTrace(next); next.notify();
+    });
     this.trace = new TraceStore(); this.traceBusy = false; this.traceCaught = true;
     this.traceError = ""; this.traceConnected = false; this.traceNext = 0; this.traceGeneration = 0;
     this.groupPinned = false; this.withCache = false; this.usageBreakdown = "models";
@@ -65,6 +71,7 @@ export default class MagpieDashboard extends View {
       else if (command === "usage" || command === "routes") this.section = command;
       else if (command === "demo" || command === "live") this.change("mode", command, cx);
       else if (command === "refresh") this.refresh(cx);
+      else if (command === "connection") this.openConnection(cx);
       cx.notify();
     } });
     cx.timer.every(1000, (cx) => {
@@ -84,7 +91,7 @@ export default class MagpieDashboard extends View {
         this.error = "The bridge did not respond within 15 seconds. Auto refresh is paused. Check the bridge, then refresh.";
         this.live.stop();
         cx.notify();
-      } else if (!this.loading && !this.paused && this.visible() && Date.now() - (this.started || 0) >= 10000) {
+      } else if (!this.loading && !this.paused && !this.connectionOpen && this.visible() && Date.now() - (this.started || 0) >= 10000) {
         this.refresh(cx);
       }
     });
@@ -92,7 +99,32 @@ export default class MagpieDashboard extends View {
     if (this.traceVisible()) this.pollTrace(cx);
   }
 
-  traceVisible() { return !this.closed && !this.paused && this.visible() && this.section === "routes" && !this.details; }
+  openConnection(cx) {
+    this.connectionOpen = true; this.traceCaught = true; this.live.stop();
+    this.connection.open(cx); cx.notify();
+  }
+  useConnection(info, cx) {
+    this.connectionOpen = false; this.connectionRevision = info.revision;
+    this.mode = "live"; this.snapshot = null; this.error = ""; this.selected = null; this.group = null;
+    this.generation++; this.loading = false; this.queued = false;
+    this.traceGeneration++; this.traceBusy = false; this.traceNext = 0; this.traceError = "";
+    this.trace.clear(); this.live.stop(); this.live.routes.clear(); this.live.setGroup(null, cx);
+    this.traceCaught = true; this.traceConnected = false; this.groupPinned = false; this.paused = false;
+    this.focus.focus(); this.refresh(cx); if (this.traceVisible()) this.pollTrace(cx); cx.notify();
+  }
+  adoptRevision(value, keepTraceRequest = false) {
+    if (!Number.isSafeInteger(value) || value === this.connectionRevision) return;
+    const changed = this.connectionRevision !== null;
+    this.connectionRevision = value;
+    if (changed) {
+      this.snapshot = null; this.selected = null; this.group = null; this.groupPinned = false;
+      this.trace.clear(); this.live.stop(); this.live.routes.clear(); this.live.group = null; this.live.project();
+      this.traceCaught = true; this.traceConnected = false;
+      if (!keepTraceRequest) { this.traceGeneration++; this.traceBusy = false; this.traceNext = 0; }
+      else { this.generation++; this.loading = false; this.queued = false; }
+    }
+  }
+  traceVisible() { return !this.closed && !this.paused && !this.connectionOpen && this.visible() && this.section === "routes" && !this.details; }
   pollTrace(cx) {
     if (!this.traceVisible() || this.traceBusy) return;
     this.traceBusy = true; this.traceStarted = Date.now();
@@ -106,6 +138,7 @@ export default class MagpieDashboard extends View {
         if (!Array.isArray(frame.routes) || !Number.isSafeInteger(frame.seq) || typeof frame.epoch !== "string" || frame.mode !== mode) throw new Error("Incompatible live routing response");
         if (generation !== this.traceGeneration || mode !== this.mode || this.closed) return;
         if (!this.traceVisible()) { this.traceCaught = true; return; }
+        this.adoptRevision(frame.connectionRevision, true);
         if (!frame.mine) { this.traceConnected = false; this.traceCaught = true; this.traceError = "The gateway is not serving a live trace."; this.traceNext = Date.now() + 5000; this.live.stop(); return; }
         const result = this.trace.apply(frame, this.traceCaught);
         this.traceCaught = false; this.traceConnected = true; this.traceError = "";
@@ -147,7 +180,7 @@ export default class MagpieDashboard extends View {
     };
     return shown(layout());
   }
-  close() { this.closed = true; this.generation++; this.traceGeneration++; this.live.stop(); }
+  close() { this.closed = true; this.generation++; this.traceGeneration++; this.live.stop(); this.connection.dispose(); }
 
   syncSignal(cx) {
     this.live.group = this.currentGroup(); this.live.project();
@@ -192,6 +225,7 @@ export default class MagpieDashboard extends View {
           || !(data.configuredGroups === null || Array.isArray(data.configuredGroups))) throw new Error("The bridge returned an incompatible dashboard. Update and restart the bridge.");
         if (!response.ok) throw new Error(plain(data.error || `Bridge returned HTTP ${response.status}`, 230));
         if (this.closed || generation !== this.generation || this.mode !== mode || this.period !== period) return;
+        this.adoptRevision(data.connectionRevision);
         this.snapshot = data;
         if (!this.requests().some(row => row.id === this.selected)) this.selected = this.requests()[0]?.id || null;
         if (!this.groups().some(group => group.id === this.group)) this.group = this.groups()[0]?.id || null;
@@ -243,6 +277,7 @@ export default class MagpieDashboard extends View {
   }
 
   key(e, cx) {
+    if (this.connectionOpen) return;
     const key = e.key?.toLowerCase();
     if (key === "r") this.refresh(cx);
     else if (key === "space") { this.paused = !this.paused; if (!this.paused) this.refresh(cx); }
@@ -334,6 +369,7 @@ export default class MagpieDashboard extends View {
       .on_size_change((size, cx) => { if (this.width !== size.width) { this.width = size.width; cx.notify(); } });
     root.child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
       .child(div().font_semibold().child("Routing")).child(div().flex_1())
+      .child(button("page-connection", "Connection", false, cx => this.openConnection(cx)))
       .child(button("page-refresh", this.loading ? "Reading…" : "Refresh", false, cx => this.refresh(cx))));
     root.child(h_flex().px(6).py(5).gap(3).flex_none().items_center()
       .child(button("page-routes", "Routes", this.section === "routes", cx => { this.section = "routes"; this.details = false; cx.notify(); }))
@@ -351,8 +387,8 @@ export default class MagpieDashboard extends View {
     for (const message of snapshot?.warnings || []) body.child(note(message, t.blocked));
     if (!snapshot && !this.trace.loaded) {
       body.child(heading(this.loading ? "Loading Magpie…" : "Connect your service"))
-        .child(text("Set the service address and web access key in the local bridge's .env, then restart it and refresh."))
-        .child(note("MAGPIE_WEB_URL · MAGPIE_WEB_KEY"))
+        .child(text("Set your Magpie service address and Web access key in Connection."))
+        .child(button("connection-setup", "Set up connection", false, cx => this.openConnection(cx)))
         .child(note("Demo previews the panel with synthetic data."));
     } else if (this.section === "usage") {
       body.child(h_flex().gap(2).flex_wrap().children(PERIODS.map(([id, title]) => button(`period-${id}`, title, this.period === id, cx => this.change("period", id, cx)))));
@@ -453,6 +489,7 @@ export default class MagpieDashboard extends View {
   }
 
   render() {
+    if (this.connectionOpen) return this.connection.render(theme());
     if (this.sidebar) return this.renderPanel();
     const t = theme(), narrow = this.width < 760;
     const label = (value, color = t.muted, size = 12) => div().text_size(size).text_color(color).child(plain(value, 240));

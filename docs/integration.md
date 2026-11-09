@@ -6,6 +6,10 @@ The original local gateway integration was verified against upstream commit `c63
 
 ## Configuration
 
+The native **Routing → Connection** form configures the Magpie Web origin, masked Web key and optional internal cookie port. GET `/api/connection` returns sanitized metadata and a process-local write token; POST `/api/connection/test` reads upstream without saving, and POST `/api/connection` atomically saves private local settings and swaps the source. Writes require a valid token, same-origin checks, JSON and the current revision. No Magpie route/account mutation is exposed. Saving cancels old trace waits and rejects stale in-flight responses. See [connection settings](connection.md).
+
+Saved settings take precedence over the following optional environment defaults. The bridge reads its private settings on restart; `.env` is still supported as an initial fallback.
+
 ```dotenv
 MAGPIE_URL=http://127.0.0.1:3425
 MAGPIE_API_KEY=
@@ -15,7 +19,7 @@ PORT=4317
 
 The gateway port defaults to **3425**. Port **3430** normally serves the authenticated management web UI. The gateway adapter uses gateway reads and does not need the web management key. When `MAGPIE_WEB_URL` is configured, the bridge instead uses the authenticated web adapter and requires `MAGPIE_WEB_KEY`. The bridge reads `.env` through Node.js's built-in environment-file support. The example is tracked; `.env` is ignored.
 
-`MAGPIE_URL` must be explicitly configured to enable live mode. `MAGPIE_HISTORY_DIR` defaults to `$XDG_CONFIG_HOME/magpie/routing`, otherwise `~/.config/magpie/routing`. Set it to `off` to disable local history. Keep the gateway adapter and Magpie on the same trusted machine to access local trace and disk history. For another machine, use `MAGPIE_WEB_URL` and `MAGPIE_WEB_KEY`. The web adapter reads that service's trace/history endpoints; no local history is merged. Remote gateway mode also disables local history automatically, but cannot show configured groups.
+The legacy gateway mode requires `MAGPIE_URL` when no saved Web connection exists. `MAGPIE_HISTORY_DIR` defaults to `$XDG_CONFIG_HOME/magpie/routing`, otherwise `~/.config/magpie/routing`. Set it to `off` to disable local history. Keep the gateway adapter and Magpie on the same trusted machine to access local trace and disk history. For another machine, use `MAGPIE_WEB_URL` and `MAGPIE_WEB_KEY`. The web adapter reads that service's trace/history endpoints; no local history is merged. Remote gateway mode also disables local history automatically, but cannot show configured groups.
 
 ## Capability detection
 

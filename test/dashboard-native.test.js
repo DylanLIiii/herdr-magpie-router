@@ -26,6 +26,7 @@ async function host(fetchImpl, props = {}, clock = Date) {
   let panelHidden = false;
   const context = { fetch: url => url.includes('/api/routing') ? Response.json({ mode: new URL(url).searchParams.get('mode'), seq: 0, epoch: 'fixture', mine: true, routes: [], ids: [] }) : fetchImpl(url), Date: clock, Intl, View: class {}, div: element, h_flex: element, v_flex: element,
     RouteSignal, strategyInfo, destinationKey, rowY, TraceStore, LiveRouting, tokenTotal, cacheHit, usageBars,
+    ConnectionForm: class { open() {} dispose() {} render() { return element(); } },
     config: { endpoint: 'http://127.0.0.1:4317/api/dashboard', modName: 'magpie-panel' },
     theme: () => ({}), layout: () => ({ id: 'magpie-pages', active, children: [{ id: 'panel', type: 'block', hidden: panelHidden, content: { mod: 'magpie-panel' } }] }),
     hostProps: () => props, nextCommand: () => new Promise(() => {}) };
@@ -79,6 +80,24 @@ test('dashboard consumes actual host props, renders routes and usage, and button
   const before = h.mod.selected;
   h.mod.key({ key: 'down' }, h.cx);
   assert.notEqual(h.mod.selected, before);
+});
+
+test('saving a connection clears old service data and late responses cannot replace the new service', async () => {
+  let release, calls = 0;
+  const h = await host(async url => {
+    if (++calls === 1) { await new Promise(resolve => { release = resolve; }); return response(url, { marker: 'old', connectionRevision: 0 }); }
+    return response(url, { marker: 'new', connectionRevision: 1 });
+  });
+  h.mod.trace.routes.set('old', { id: 'old', group: 'private-old-group', attempts: [], timestamp: new Date().toISOString() });
+  h.mod.useConnection({ revision: 1 }, h.cx);
+  assert.equal(h.mod.snapshot, null);
+  assert.equal(h.mod.trace.routes.has('old'), false);
+  assert.equal(h.mod.mode, 'live');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.mod.snapshot.marker, 'new');
+  release(); await h.settle();
+  assert.equal(h.mod.snapshot.marker, 'new');
+  assert.equal(h.mod.connectionRevision, 1);
 });
 
 test('period switches cannot be overwritten by a late response from another period', async () => {

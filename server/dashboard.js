@@ -41,7 +41,7 @@ export function routeGroups(value) {
   }));
 }
 
-/** One fixed service per bridge; no URL or credential is accepted from a client. */
+/** An immutable service adapter. Connections replaces it after an explicit local settings save. */
 export class DashboardSource {
   constructor({ env = process.env, fetchImpl = fetch, historyReader } = {}) {
     this.web = Boolean(env.MAGPIE_WEB_URL);
@@ -86,7 +86,7 @@ export class DashboardSource {
   }
 
   snapshot() {
-    if (!this.configured) return Promise.reject(new SourceError('Set MAGPIE_WEB_URL and MAGPIE_WEB_KEY in the bridge .env'));
+    if (!this.configured) return Promise.reject(new SourceError('Open Connection to set your Magpie Web address and key.'));
     if (!this.web) return this.local.snapshot();
     return this.cached('snapshot', 2500, async () => {
       const [traceResult, historyResult, ledgerResult] = await Promise.allSettled([
@@ -121,7 +121,7 @@ export class DashboardSource {
   async dashboard(period = 'today', zone = '') {
     if (!PERIODS.includes(period)) throw new SourceError('Unknown usage period');
     if (zone.length > 100 || !/^[A-Za-z0-9_+/:.-]*$/.test(zone)) throw new SourceError('Invalid time zone');
-    if (!this.configured) throw new SourceError('Set MAGPIE_WEB_URL and MAGPIE_WEB_KEY in the bridge .env');
+    if (!this.configured) throw new SourceError('Open Connection to set your Magpie Web address and key.');
     const query = `period=${period}${zone ? `&tz=${encodeURIComponent(zone)}` : ''}`;
     const [routeResult, usageResult, groupResult] = await Promise.allSettled([
       this.snapshot(),

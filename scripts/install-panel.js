@@ -20,7 +20,7 @@ export async function installPanel({ home = process.env.HERDR_APP_HOME || join(h
     throw new Error(`Already exists: ${destination}. Choose another --name; existing files are never overwritten.`);
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
   const main = await readFile(join(source, 'main.js'), 'utf8');
-  const support = await Promise.all(['routing.js', 'live-routing.js', 'usage.js'].map(async file => [file, await readFile(join(source, file), 'utf8')]));
+  const support = await Promise.all(['routing.js', 'live-routing.js', 'usage.js', 'connection.js'].map(async file => [file, await readFile(join(source, file), 'utf8')]));
   await mkdir(join(resolve(home), 'mods'), { recursive: true });
   await mkdir(destination); // Exclusive, including concurrent installers.
   await writeFile(join(destination, 'config.js'), `// Local bridge only. The Magpie service and its credential stay in the bridge .env.\nexport default ${JSON.stringify({ endpoint: url.href, modName: name, motion: true }, null, 2)};\n`, { flag: 'wx' });
