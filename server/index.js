@@ -1,10 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { demoSnapshot, demoDashboard } from './demo.js';
 import { DashboardSource, PERIODS } from './dashboard.js';
-import { demoTrace } from './demo-trace.js';
-import { setTimeout as delay } from 'node:timers/promises';
 import { Connections, ConnectionError } from './connection.js';
 
 const assets = new Map([
@@ -91,20 +88,25 @@ export function createApp({ source, connections = null, port = 4317 } = {}) {
     const activeSource = connections?.source || source, revision = connections?.revision;
     const current = () => !connections || revision === connections.revision;
     const changed = () => send(409, { error: 'Connection changed. Refresh to read the selected service.' });
+    if (url.pathname === '/api/allowances') {
+      if (!activeSource.configured) return send(503, { error: 'Open Settings to connect your Magpie service.', connection: 'unconfigured' });
+      try {
+        const data = await activeSource.allowances(url.searchParams.get('refresh') === '1');
+        return current() ? send(200, { ...data, connectionRevision: revision }) : changed();
+      } catch (error) {
+        return current() ? send(503, { error: error.publicMessage || 'Subscription allowances could not be read.' }) : changed();
+      }
+    }
     if (url.pathname === '/api/routing') {
       const after = Number(url.searchParams.get('after') || '0'), epoch = url.searchParams.get('epoch') || '';
       const mode = url.searchParams.get('mode') || 'live', wait = url.searchParams.get('wait') === '1';
-      if (!Number.isSafeInteger(after) || after < 0 || !/^[a-zA-Z0-9_-]{0,64}$/.test(epoch) || !['live', 'demo'].includes(mode)) {
+      if (!Number.isSafeInteger(after) || after < 0 || !/^[a-zA-Z0-9_-]{0,64}$/.test(epoch) || mode !== 'live') {
         return send(400, { error: 'Invalid routing cursor or mode' });
       }
       const abort = new AbortController();
       traceControllers.add(abort);
       response.on('close', () => { traceControllers.delete(abort); if (!response.writableEnded) abort.abort(); });
       try {
-        if (mode === 'demo') {
-          if (wait) await delay(500, null, { signal: abort.signal });
-          return send(200, demoTrace());
-        }
         if (!activeSource.configured) return send(503, { error: 'Open Connection to set the Magpie address and Web key.' });
         const frame = await activeSource.trace({ after, epoch, wait, signal: abort.signal });
         if (!response.destroyed) return current() ? send(200, { ...frame, mode: 'live', connectionRevision: revision }) : changed();
@@ -117,10 +119,9 @@ export function createApp({ source, connections = null, port = 4317 } = {}) {
       const mode = url.searchParams.get('mode') || 'live';
       const period = url.searchParams.get('period') || 'today';
       const zone = url.searchParams.get('tz') || '';
-      if (!['demo', 'live'].includes(mode) || !PERIODS.includes(period) || zone.length > 100 || !/^[A-Za-z0-9_+/:.-]*$/.test(zone)) {
+      if (mode !== 'live' || !PERIODS.includes(period) || zone.length > 100 || !/^[A-Za-z0-9_+/:.-]*$/.test(zone)) {
         return send(400, { error: 'Invalid mode, usage period or time zone' });
       }
-      if (mode === 'demo') return send(200, demoDashboard(period));
       const unavailable = error => ({
         ...disconnectedSnapshot(error, activeSource.configured), period, usage: null,
         configuredGroups: null, service: activeSource.service || null, warnings: [], connectionRevision: revision,
@@ -133,9 +134,8 @@ export function createApp({ source, connections = null, port = 4317 } = {}) {
       catch (error) { return current() ? send(503, unavailable(error.publicMessage || 'Cannot reach Magpie. Check the service address and access key.')) : changed(); }
     }
     if (url.pathname === '/api/snapshot') {
-      const mode = url.searchParams.get('mode') || 'demo';
-      if (mode === 'demo') return send(200, demoSnapshot());
-      if (mode !== 'live') return send(400, { error: 'mode must be demo or live' });
+      const mode = url.searchParams.get('mode') || 'live';
+      if (mode !== 'live') return send(400, { error: 'Only live service data is supported' });
       if (!activeSource.configured) return send(503, disconnectedSnapshot('尚未配置 Magpie 数据源'));
       try { const data = await activeSource.snapshot(); return current() ? send(200, data) : changed(); }
       catch (error) { return current() ? send(503, disconnectedSnapshot(error.publicMessage || 'Magpie 连接失败，请检查服务状态', true)) : changed(); }
@@ -157,6 +157,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const connections = await Connections.open();
   const app = createApp({ port, connections });
   app.on('error', error => { console.error(`Panel failed to start: ${error.code || 'server error'}`); process.exitCode = 1; });
-  app.listen(port, '127.0.0.1', () => console.log(`Magpie Router · http://127.0.0.1:${port}\nDemo: ?mode=demo · Live: ?mode=live · Embed: ?embed=1`));
+  app.listen(port, '127.0.0.1', () => console.log(`Magpie Router · http://127.0.0.1:${port}\nLive service data · Embed: ?embed=1`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => app.close(() => process.exit(0)));
 }

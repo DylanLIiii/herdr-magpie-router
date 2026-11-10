@@ -1,14 +1,11 @@
 const $ = id => document.getElementById(id);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const params = new URLSearchParams(location.search);
-let savedMode;
-try { savedMode = localStorage.getItem('magpie-mode'); } catch { /* Storage may be unavailable in an embedded panel. */ }
-const initialMode = params.get('mode') || savedMode;
 const state = {
-  mode: initialMode === 'live' ? 'live' : 'demo', snapshot: null, range: '1h',
+  mode: 'live', snapshot: null, range: '1h',
   view: ['requests', 'groups'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview',
-  search: '', status: 'all', group: 'all', selected: null, detailOpen: false,
-  paused: false, loading: false, fetchError: '', lastReceived: null
+  search: '', status: 'all', selected: null, detailOpen: false,
+  loading: false, fetchError: '', lastReceived: null
 };
 const durations = {'15m': 900000, '1h': 3600000, '24h': 86400000};
 const statusLabels = {success: '成功', error: '失败', pending: '处理中'};
@@ -33,9 +30,8 @@ function filteredRequests() {
   const query = state.search.trim().toLowerCase();
   return inRange().filter(request => {
     const statusMatches = state.status === 'all' || (state.status === 'fallback' ? request.fallback : request.status === state.status);
-    const groupMatches = state.group === 'all' || request.group === state.group;
     const haystack = [request.id, request.group, request.requestedModel, request.model, request.provider].join(' ').toLowerCase();
-    return statusMatches && groupMatches && (!query || haystack.includes(query));
+    return statusMatches && (!query || haystack.includes(query));
   });
 }
 function groupName(id) { return groups().find(group => group.id === id)?.name || id || '未分组'; }
@@ -72,35 +68,27 @@ function renderMetrics() {
 
 function renderSource() {
   const snapshot = state.snapshot;
-  const demo = state.mode === 'demo';
-  $('source-badge').textContent = demo ? '演示数据' : '实时数据';
-  $('source-badge').classList.toggle('live', !demo);
-  $('source-detail').textContent = demo ? '示例路由，仅用于预览' : snapshot?.source?.detail || '通过本地桥接读取 Magpie';
+  $('source-badge').textContent = '实时数据';
+  $('source-badge').classList.add('live');
+  $('source-detail').textContent = snapshot?.source?.detail || '通过本地桥接读取 Magpie';
   $('source-name').textContent = snapshot?.source?.label || '本地路由观察';
   $('source-detail').title = snapshot?.source?.detail || '';
   const connection = state.fetchError ? 'disconnected' : snapshot?.connection;
-  const labels = {connected: demo ? '演示数据已连接' : 'Magpie 已连接', disconnected: '连接已断开', unconfigured: '尚未配置连接'};
+  const labels = {connected: 'Magpie 已连接', disconnected: '连接已断开', unconfigured: '尚未配置连接'};
   $('connection-label').textContent = labels[connection] || '正在连接';
   $('connection-dot').className = connection || '';
-  $('updated-label').textContent = snapshot?.updatedAt ? `更新于 ${shortTime(snapshot.updatedAt)}${state.paused ? ' · 已暂停' : ''}` : state.loading ? '正在读取数据…' : '尚无更新';
+  $('updated-label').textContent = snapshot?.updatedAt ? `更新于 ${shortTime(snapshot.updatedAt)}` : state.loading ? '正在读取数据…' : '尚无更新';
   const message = state.fetchError
     ? `${state.snapshot ? '数据可能已过期。' : ''}${state.fetchError} 点击右上角刷新重试。`
     : snapshot?.error ? `数据源暂不可用：${snapshot.error}`
-    : snapshot?.connection === 'unconfigured' ? '尚未配置 Magpie 连接。请在本地桥接服务中配置数据源，或切换到演示数据预览。'
+    : snapshot?.connection === 'unconfigured' ? '尚未配置 Magpie 连接。请在本地桥接服务中配置数据源。'
     : snapshot?.connection === 'disconnected' ? '与数据源的连接已断开。请检查本地桥接服务，然后刷新重试。' : '';
   $('notice').hidden = !message;
   $('notice').textContent = message;
   $('refresh').disabled = state.loading;
   $('refresh').classList.toggle('loading', state.loading);
   $('refresh').setAttribute('aria-busy', String(state.loading));
-  $('table-footnote').textContent = state.paused ? '自动更新已暂停' : state.loading ? '正在更新…' : '每 5 秒自动更新';
-}
-
-function renderGroupFilter() {
-  const options = [...new Set(requests().map(request => request.group).filter(Boolean))];
-  if (state.group !== 'all' && !options.includes(state.group)) state.group = 'all';
-  $('group-filter').innerHTML = '<option value="all">全部分组</option>' + options.map(id => `<option value="${escape(id)}">${escape(groupName(id))}</option>`).join('');
-  $('group-filter').value = state.group;
+  $('table-footnote').textContent = state.loading ? '正在更新…' : '每 5 秒自动更新';
 }
 
 function renderRequests() {
@@ -227,7 +215,7 @@ function renderView() {
   });
 }
 function render() {
-  renderSource(); renderMetrics(); renderGroupFilter(); renderRequests(); renderProviders(); renderGroups(); renderView();
+  renderSource(); renderMetrics(); renderRequests(); renderProviders(); renderGroups(); renderView();
 }
 
 let controller;
@@ -258,24 +246,8 @@ async function fetchSnapshot() {
   }
 }
 
-$('mode').value = state.mode;
 document.body.classList.toggle('embed', params.get('embed') === '1');
-$('mode').addEventListener('change', () => {
-  state.mode = $('mode').value;
-  try { localStorage.setItem('magpie-mode', state.mode); } catch { /* Optional persistence. */ }
-  const url = new URL(location.href); url.searchParams.set('mode', state.mode); history.replaceState(null, '', url);
-  fetchGeneration++; controller?.abort(); state.loading = false;
-  state.snapshot = null; state.selected = null; state.detailOpen = false; state.fetchError = '';
-  render(); fetchSnapshot();
-});
 $('refresh').addEventListener('click', fetchSnapshot);
-$('pause').addEventListener('click', () => {
-  state.paused = !state.paused;
-  $('pause').innerHTML = `<svg class="icon"><use href="#i-${state.paused ? 'play' : 'pause'}"/></svg><span>${state.paused ? '继续' : '暂停'}</span>`;
-  $('pause').setAttribute('aria-pressed', String(state.paused));
-  renderSource();
-  if (!state.paused) fetchSnapshot();
-});
 window.addEventListener('hashchange', () => {
   state.view = ['requests', 'groups'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
   renderView();
@@ -288,10 +260,9 @@ document.querySelectorAll('[data-range]').forEach(button => button.addEventListe
 $('filters').addEventListener('submit', event => event.preventDefault());
 $('search').addEventListener('input', event => { state.search = event.target.value; renderRequests(); });
 $('status-filter').addEventListener('change', event => { state.status = event.target.value; renderRequests(); });
-$('group-filter').addEventListener('change', event => { state.group = event.target.value; renderRequests(); });
 $('clear-filters').addEventListener('click', () => {
-  state.search = ''; state.status = 'all'; state.group = 'all'; state.range = '24h';
-  $('search').value = ''; $('status-filter').value = 'all'; $('group-filter').value = 'all';
+  state.search = ''; state.status = 'all'; state.range = '24h';
+  $('search').value = ''; $('status-filter').value = 'all';
   document.querySelectorAll('[data-range]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.range === '24h')));
   renderMetrics(); renderRequests();
 });
@@ -314,5 +285,5 @@ $('export').addEventListener('click', () => {
   anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 renderView(); renderSource(); fetchSnapshot();
-setInterval(() => { if (!state.paused && !document.hidden) fetchSnapshot(); }, 5000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && !state.paused) fetchSnapshot(); });
+setInterval(() => { if (!document.hidden) fetchSnapshot(); }, 5000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchSnapshot(); });

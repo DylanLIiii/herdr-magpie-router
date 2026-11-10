@@ -1,0 +1,15 @@
+{
+  "surface": "Native Herdr GPUI right panel after Files and Changes",
+  "application": "Herdr App 0.1.10 Linux",
+  "capture": "herdr-app shot; isolated X11 ffmpeg recording",
+  "windowPixels": [1440, 1000],
+  "panelLogicalWidths": {"dark": 368, "light": 320},
+  "source": "Local synthetic HTTP fixture; not a real Magpie account or service",
+  "data": "Synthetic Client/group/model traffic, request outcomes, cache counts, vendor quota windows and reported cost",
+  "auth": "No real credentials or account identities included",
+  "recordingSeconds": 22,
+  "recordingFramesPerSecond": 30,
+  "gifFramesPerSecond": 15,
+  "review": "Native dark/light and loading captures and animation contact sheets inspected",
+  "upstreamSourceCommit": "cd0ba05c216c924ef7f962c25111c0293814b45b"
+}

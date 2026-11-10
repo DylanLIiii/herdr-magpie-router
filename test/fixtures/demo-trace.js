@@ -1,4 +1,4 @@
-import { projectTrace } from './trace.js';
+import { projectTrace } from '../../server/trace.js';
 
 /** Synthetic protocol fixture: selecting → pending → retry → pending → success. */
 export function demoTrace(now = Date.now()) {

@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { DashboardSource, routeGroups, usageSummary } from './dashboard.js';
+import { serviceAddress } from './upstream.js';
 
 export class ConnectionError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
@@ -14,12 +15,8 @@ export function connectionPath(env = process.env) {
 
 function address(value) {
   if (typeof value !== 'string' || value.length > 2048) throw new ConnectionError('Enter a Magpie Web service address.');
-  let url;
-  try { url = new URL(value.trim()); } catch { throw new ConnectionError('Use a full HTTP(S) address, including the Web port.'); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
-    throw new ConnectionError('Use an HTTP(S) service origin without a path, query or embedded credentials.');
-  }
-  return url.origin;
+  try { return serviceAddress(value.trim()); }
+  catch (error) { throw new ConnectionError(error.publicMessage); }
 }
 
 function normalize(input, previous = null) {
@@ -27,8 +24,8 @@ function normalize(input, previous = null) {
   const url = address(input.url);
   if (typeof input.key !== 'string' || typeof (input.cookiePort ?? '') !== 'string') throw new ConnectionError('Invalid key or cookie port.');
   const supplied = input.key.trim();
-  // Blank means keep only when the secret's origin stays the same. Never send
-  // the previous service's key to a different host, protocol or external port.
+  // A proxy may host different services on different paths. Keep a blank key
+  // only for the same origin AND normalized prefix.
   const key = supplied || (previous?.url === url ? previous.key : '');
   if (!key) throw new ConnectionError(previous ? 'Enter a new Web key when changing the service address.' : 'Enter the Magpie Web access key.');
   if (!/^[A-Za-z0-9._~-]{16,4096}$/.test(key)) throw new ConnectionError('Use the Magpie Web access key (16–4096 URL-safe characters).');
@@ -109,7 +106,7 @@ export class Connections {
       source.read('/api/usage?period=today').then(value => usageSummary(value, 'today')),
     ]);
     if (input.revision !== this.revision) throw new ConnectionError('Connection changed during the test. Reopen Connection.', 409);
-    const checks = results.map((result, index) => ({ name: ['Routing', 'Groups', 'Usage'][index], ok: result.status === 'fulfilled' }));
+    const checks = results.map((result, index) => ({ name: ['Routing', 'Groups', 'Cost'][index], ok: result.status === 'fulfilled' }));
     if (!checks.some(check => check.ok)) throw new ConnectionError('Cannot connect. Check the Web address, access key and internal port.', 502);
     return { url: record.url, ok: true, checks, partial: checks.some(check => !check.ok),
       routingActive: results[0].status === 'fulfilled' ? results[0].value.mine : false };

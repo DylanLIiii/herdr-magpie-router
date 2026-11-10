@@ -8,17 +8,24 @@ export class SourceError extends Error {
   }
 }
 
-/** Only fixed operator-controlled origins are accepted; upstream error bodies are never exposed. */
-export function createReader({ baseUrl, headers = {}, fetchImpl = fetch, timeoutMs = 6000 }) {
-  let base;
-  try { base = new URL(baseUrl); }
-  catch { throw new SourceError('MAGPIE_URL 格式无效'); }
-  if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) {
-    throw new SourceError('MAGPIE_URL 需要无内嵌凭据的 HTTP(S) 地址');
+/** A service may be mounted below an HTTP(S) reverse proxy path. */
+export function serviceAddress(value) {
+  let url;
+  try { url = new URL(value); }
+  catch { throw new SourceError('Use a full HTTP(S) service address.'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+    throw new SourceError('Use an HTTP(S) address without a query, fragment or embedded credentials. A service path is allowed.');
   }
+  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+}
+
+/** Only the configured service prefix is read; upstream error bodies stay private. */
+export function createReader({ baseUrl, headers = {}, fetchImpl = fetch, timeoutMs = 6000 }) {
+  const base = new URL(`${serviceAddress(baseUrl)}/`);
   return async function read(path, { signal, timeout = timeoutMs } = {}) {
-    const url = new URL(path, base);
-    if (url.origin !== base.origin) throw new SourceError('拒绝访问其他上游地址');
+    if (typeof path !== 'string' || !/^\/(?!\/)/.test(path) || path.includes('\\')) throw new SourceError('拒绝访问其他上游地址');
+    const url = new URL(path.slice(1), base);
+    if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) throw new SourceError('拒绝访问其他上游地址');
     let response;
     try {
       const deadline = AbortSignal.timeout(Math.min(35000, Math.max(1, timeout)));

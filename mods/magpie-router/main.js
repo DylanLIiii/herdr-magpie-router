@@ -99,7 +99,7 @@ export default class MagpieRouter extends View {
   }
 
   switchMode(mode, cx) {
-    if (mode === this.mode) return;
+    if (mode !== 'live' || mode === this.mode) return;
     this.mode = mode;
     this.snapshot = null;
     this.selected = null;
@@ -186,16 +186,9 @@ export default class MagpieRouter extends View {
         .child(h_flex().items_center().justify_between()
           .child(v_flex().gap(3).child(div().text_size(17).font_semibold().child("Magpie"))
             .child(label("路由观察台", t.dim)))
-          .child(label(this.mode === "demo" ? "演示数据" : "实时 · 只读", this.mode === "demo" ? t.working : t.accent)))
+          .child(label("实时 · 只读", t.accent)))
         .child(h_flex().gap(5).items_center()
-          .child(button("magpie-live", "实时", this.mode === "live", (cx) => this.switchMode("live", cx)))
-          .child(button("magpie-demo", "演示", this.mode === "demo", (cx) => this.switchMode("demo", cx)))
           .child(div().flex_1())
-          .child(button("magpie-pause", this.paused ? "继续" : "暂停", this.paused, (cx) => {
-            this.paused = !this.paused;
-            if (!this.paused) this.refresh(cx);
-            cx.notify();
-          }))
           .child(button("magpie-refresh", this.loading ? "读取中" : "刷新", false, (cx) => this.refresh(cx)))))
       .child(div().h(1).bg(t.border))
       .child(body)

@@ -19,14 +19,14 @@ async function host(t, source) {
   return { options, get };
 }
 
-test('live routing endpoint forwards cursor and wait, while demo uses no upstream and bad cursors are rejected', async t => {
+test('live routing endpoint forwards cursor and wait and rejects removed modes and bad cursors', async t => {
   const calls = [];
   const { get } = await host(t, { configured: true, trace: async options => { calls.push(options); return { seq: 12, epoch: 'owner', mine: true, routes: [], ids: [] }; } });
   const live = await get('/api/routing?mode=live&after=9&epoch=owner&wait=1');
   assert.equal(live.code, 200); assert.equal(live.body.mode, 'live'); assert.equal(live.body.seq, 12);
   assert.equal(calls[0].after, 9); assert.equal(calls[0].epoch, 'owner'); assert.equal(calls[0].wait, true);
   assert.equal(calls[0].signal.aborted, false);
-  assert.equal((await get('/api/routing?mode=demo')).body.mode, 'demo');
+  assert.equal((await get('/api/routing?mode=demo')).code, 400);
   assert.equal(calls.length, 1);
   for (const query of ['after=-1', 'after=bad', 'after=1.3', 'epoch=%0A', 'mode=other']) assert.equal((await get(`/api/routing?${query}`)).code, 400);
 });

@@ -8,7 +8,9 @@ The local checkout was read directly at `/root/.x-repo/github.com/yetone/magpie`
 
 - `internal/gui/assets/plugins/routing/client.js`: `poll`, `play`, `home`, `stopPlays`.
 - `internal/gui/assets/plugins/usage/page.js`: `renderUsage`, `usageTokens` and the stacked timeline.
-- `internal/gui/assets/app.js`: `cacheHitOf`.
+- `internal/gui/assets/app.js`: `cacheHitOf`, `quotaFill`, `quotaText`, `quotaNoShare` and quota-count semantics.
+- `internal/gui/usage.go` and `internal/provider/subscription_usage.go`: vendor subscription quota endpoint, windows, balance and reset semantics.
+- `internal/usage/usage.go`: request-level cache counters and unknown-cache exclusions.
 - `internal/gateway/trace.go` and `internal/gui/trace.go`: live trace protocol and 25-second long polling.
 
 The UI is adapted to Herdr's native GPUI interface. It is not a copy of Magpie's DOM/CSS, birds, account tree or prompt/archive UI.

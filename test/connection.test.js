@@ -65,9 +65,37 @@ test('blank key is retained only for the same normalized origin and changing ori
   assert.equal(manager.info().url, 'http://127.0.0.1:3430');
 });
 
+test('a reverse proxy prefix is retained for test, save, restart and every authenticated API request', async t => {
+  const paths = [], key = secret('prefix');
+  const upstream = createServer((req, res) => {
+    paths.push(req.url);
+    if (!req.url.startsWith('/mac/api/') || req.headers.cookie !== `magpie_web_3430=${key}`) {
+      res.writeHead(404); res.end(); return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(req.url.includes('trace') ? { seq: 1, mine: true, routes: [] }
+      : req.url.includes('groups') ? { groups: [] } : { period: 'today', calls: 0 }));
+  });
+  upstream.listen(0, '127.0.0.1'); await once(upstream, 'listening');
+  t.after(() => new Promise(resolve => { upstream.closeAllConnections(); upstream.close(resolve); }));
+  const file = await storage(t), manager = await Connections.open({ env: {}, file });
+  const url = `http://127.0.0.1:${upstream.address().port}/mac/`;
+  const input = draft(manager, { url, key, cookiePort: '3430' });
+  assert.equal((await manager.test(input)).partial, false);
+  await manager.save(input);
+  assert.equal(manager.info().url, url.slice(0, -1));
+  const restored = await Connections.open({ env: {}, file });
+  const retained = draft(restored, { url: url.slice(0, -1), key: '', cookiePort: '3430' });
+  assert.equal((await restored.test(retained)).partial, false);
+  assert.equal(restored.source.service.url, url.slice(0, -1));
+  assert.ok(paths.includes('/mac/api/gateway/trace?after=0'));
+  assert.ok(paths.includes('/mac/api/usage?period=today'));
+  await assert.rejects(restored.test({ ...retained, url: url.replace('/mac/', '/other/') }), /new Web key/);
+});
+
 test('validation errors, stale writers and persistence failure leave the previous source intact', async t => {
   const manager = await Connections.open({ env: {}, file: await storage(t), fetchImpl: okay });
-  for (const extra of [{ url: 'file:///tmp/config' }, { url: 'https://host/api' }, { url: 'https://host/?token=bad' },
+  for (const extra of [{ url: 'file:///tmp/config' }, { url: 'https://host/#fragment' }, { url: 'https://host/?token=bad' },
     { url: 'https://user:secret@host' }, { cookiePort: '99999' }, { key: 'short' }]) await assert.rejects(manager.save(draft(manager, extra)));
   const originalDraft = draft(manager);
   await manager.save(originalDraft);

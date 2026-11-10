@@ -95,14 +95,14 @@ test('remote gateway usage cannot merge this machine\'s history', async () => {
 test('management URL and cookie configuration reject ambiguous or unsafe input', () => {
   for (const config of [
     { ...env, MAGPIE_WEB_URL: `${env.MAGPIE_WEB_URL}/?k=secret` },
-    { ...env, MAGPIE_WEB_URL: `${env.MAGPIE_WEB_URL}/some/path` },
+    { ...env, MAGPIE_WEB_URL: `${env.MAGPIE_WEB_URL}/#fragment` },
     { ...env, MAGPIE_WEB_KEY: 'bad; injected=value' },
     { ...env, MAGPIE_WEB_COOKIE_PORT: '3430\r\nX:bad' },
     { ...env, MAGPIE_WEB_KEY: '' },
   ]) assert.throws(() => new DashboardSource({ env: config }));
 });
 
-test('dashboard HTTP endpoint defaults to live, validates periods, and demo never reads a service', async t => {
+test('dashboard HTTP endpoint defaults to live and rejects invalid periods and removed modes', async t => {
   let calls = 0;
   const app = createApp({ port: 14319, source: { configured: true, service: { url: 'http://192.0.2.20:3430' },
     async dashboard(period, zone) { calls++; return { mode: 'live', period, zone }; } } });
@@ -118,9 +118,7 @@ test('dashboard HTTP endpoint defaults to live, validates periods, and demo neve
   });
   assert.equal((await (await get('/api/dashboard')).json()).mode, 'live');
   assert.equal(calls, 1);
-  const demo = await (await get('/api/dashboard?mode=demo&period=7d')).json();
-  assert.equal(demo.mode, 'demo');
-  assert.equal(demo.period, '7d');
+  assert.equal((await get('/api/dashboard?mode=demo&period=7d')).status, 400);
   assert.equal(calls, 1);
   assert.equal((await get('/api/dashboard?period=forever')).status, 400);
   assert.equal((await get('/api/dashboard?tz=%0A')).status, 400);

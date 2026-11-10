@@ -208,7 +208,7 @@ On mobile the four metrics remain four columns. Their labels wrap and reserve he
 
 `?embed=1` adds the browser embed variant: hide sidebar, provider surface, and page footer; clear workspace offset; use a (46px) topbar with (20px) horizontal padding and main padding (23px 20px). At narrow widths main padding becomes (19px 16px), while the general mobile rule makes the topbar (49px) high. The graph still follows the viewport breakpoint, so the inspected embed capture uses the vertical route. Embed does not inherit Herdr theme tokens.
 
-The native panel is a full-size vertical layout on `t.surface`, with a scrolling body, (14) outer padding and (12) body gaps. Native detail cards use (11) padding and (7) gaps; request rows use (10) padding and (5) gaps. The most recent requests form a vertical list, currently capped at 16. Extend this compact native structure using host primitives.
+The current native panel uses `t.background`, a 42px header and 42px Routes/Usage/Cost tab row. The route diagram has up to four 76px lanes, dropping to the latest two when idle. The request list owns the remaining height and scrolls independently, with 14px horizontal and 12px vertical row padding. It shows up to 80 requests. Cost and subscription Usage use 14px padding and 20px section gaps; normal text is 12–14px, provider headings 16px. All sizes are logical GPUI units.
 
 ## Elevation & Depth
 
@@ -256,7 +256,17 @@ At the compact breakpoint, replace the graph with three stacked bordered steps j
 
 ### Native Herdr panel
 
-The current native surface shares the default right panel stack with Files and Changes. A cloned installed tab bar adds Routing after Changes and reuses the host's per-space panel state. The panel uses the host's 42px header, 13px body, 14px padding, 10px frame radius and theme border. Routing is event-driven: small native light dots wait at model destinations until upstream completion, returning for success or fallback. Usage adds a compact stacked input/output trend, cache inclusion and Models/Agents breakdown. These are native extensions of the existing system; the web tokens above remain unchanged. See `docs/routing-motion.md` for timing and source semantics.
+The current native surface shares the default right panel stack with Files and Changes. A cloned installed tab bar adds Routing after Changes and reuses host per-space selection. Host theme colors, font, 42px header and 10px frame radius remain authoritative.
+
+The visual direction is a precise, quiet routing instrument. Its defining detail is the actual Client → Group → Model request path. Chrome recedes; color belongs to packet state and measurements. Route group selection, Following controls, Demo, Pause and repeated connection captions are absent. URL/key and Motion live only in Settings; Motion defaults on.
+
+Native packets have a 10px outlined body and 4px core, with no bloom or shadow. Successful requests return and fade, failures return in the failure color, retries use amber, cancellations fade at the target. State icons and labels make the distinction independent of color. Native `left` and opacity transitions are required by the GPUI API; the host interpolates them.
+
+Recent request rows are flat, full width, divided by theme hairlines and keyboard focusable. Model and duration lead, Client/group and time follow, then result, input/output and cache hit. There is no explanatory subtitle or capped list box wasting vertical space.
+
+Usage shows each vendor's plan/windows as a plain section with remaining share and reset time; account labels are anonymous ordinals where needed. No sum across unrelated accounts or overlapping windows. Cost presents reported dollars, requests and cache hit, one stacked token chart with visible Input/Output legend, and compact model/client rows. Missing data stays unknown.
+
+Initial connection and initial quota fetch use static skeletons; in-flight work never produces a red not-connected state. Confirmed failures provide concise recovery, retaining prior observations with a stale label when available. See `docs/routing-motion.md` and `docs/redesign-verification.md`.
 
 Resolve `t.surface`, `t.foreground`, `t.muted`, `t.dim`, `t.raised`, `t.border`, `t.selected`, `t.accent`, and `t.hover` from `theme()`. Native buttons use raised or selected backgrounds with muted or accent text; hover uses `t.hover`. Selected requests use `t.selected` and an accent border. Success resolves to `t.done`, failure to `t.blocked`, pending to `t.working`, and unknown to `t.muted`. The same source honesty and request-to-attempt inspection apply, expressed through the host theme. The sidecar examples intentionally represent browser components only; browser HTML cannot preview native GPUI rendering faithfully.
 

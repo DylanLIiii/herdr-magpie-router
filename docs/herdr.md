@@ -4,7 +4,7 @@
 
 mods/magpie-router 是原生 GPUI JavaScript Mod，不是网页嵌入。main.js 默认导出 View，直接使用 gpui-kit、gpui-base 和 herdr 的 theme()。mod.json 首次安装默认右侧停靠，宽度 400 逻辑像素；之后由 Herdr 已有布局控制位置。无需 layouts 文件夹，也不要求修改现有配置。
 
-面板默认实时模式，只读访问 http://127.0.0.1:4317/api/snapshot?mode=live。点击“演示”请求同接口的 mode=demo，并明确标记演示数据。可通过宿主传入 props.endpoint 覆盖接口地址；使用完整快照路径，已有其他查询参数会保留。原生面板没有地址输入框。数据由桥接提供，面板不生成请求或提供商记录。
+此文件描述早期 `mods/magpie-router` 兼容 Mod；当前侧栏使用 `mods/magpie-dashboard`，安装与设置见 [sidebar.md](sidebar.md)。旧 Mod 只读访问 http://127.0.0.1:4317/api/snapshot?mode=live，Demo 和 Pause 入口已移除。可通过 props.endpoint 覆盖快照接口地址。当前侧栏提供 Settings 地址输入框，所有产品接口只返回真实服务数据，合成数据仅保留在测试中。
 
 顶部显示模式、暂停和刷新；主体包含来源、连接状态、更新时间、所选请求的路由详情、最多 16 条最新请求和提供商统计。点击请求查看“分组 → 实际模型 → 提供商”、回退、耗时、首字耗时、token 和实际尝试。未提供的信息显示“—”或明确空状态。失败尝试不直接展示服务端原始错误，避免泄露提示词或凭据；不展示任何原始请求或响应。
 

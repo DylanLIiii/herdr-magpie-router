@@ -1,6 +1,6 @@
-// The local bridge URL. Configure the remote Magpie service and its key in the bridge .env.
+// Local bridge URL. Configure the Magpie service and Web key in Settings.
 export default {
   endpoint: "http://127.0.0.1:4317/api/dashboard",
-  // Set false for a static routing indicator; also available in the panel.
+  // Motion is on by default; Settings offers a static alternative.
   motion: true
 };

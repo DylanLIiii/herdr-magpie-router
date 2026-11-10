@@ -1,3 +1,5 @@
+import { requestCache } from './request-metrics.js';
+
 const list = value => Array.isArray(value) ? value : [];
 const text = value => typeof value === 'string' ? value.slice(0, 300) : value == null ? '' : String(value).slice(0, 300);
 const numeric = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
@@ -89,14 +91,16 @@ export function normalizeSnapshot({ routes = [], rows = [], sourceKind, warning,
     const code = route.status || ledger.final?.status;
     const failure = route.error;
     requests.push({
-      id, timestamp: time, group: groupId, requestedModel,
+      id, timestamp: time, group: groupId, groupName: text(route.group?.name), strategy: text(route.group?.routing),
+      agent: text(route.agent || usage?.agent), requestedModel,
       provider: last?.provider || text(usage?.provider || route.provider),
       model: text(route.served || usage?.served || last?.model || usage?.model || requestedModel),
-      status: status(code, route.done, failure),
+      status: route.canceled === true ? 'canceled' : status(code, route.done, failure),
       durationMs: positive(usage?.ms) ?? positive(route.ms),
       ttftMs: positive(usage?.ttft_ms) ?? positive(route.ttft),
       inputTokens: sumCounters(billable, 'in') ?? ledger.input,
       outputTokens: sumCounters(billable, 'out') ?? ledger.output ?? positive(route.out),
+      ...requestCache(billable.length ? billable : ledger.rows),
       fallback: attempts.length ? attempts.some((attempt, index) => attempt.status === 'error' && index < attempts.length - 1) : null,
       attempts,
       ...(safeError(failure, code) ? { error: safeError(failure, code) } : {}),
@@ -111,10 +115,10 @@ export function normalizeSnapshot({ routes = [], rows = [], sourceKind, warning,
     const code = ledger.final?.status;
     const requestedModel = text(row.req || row.model);
     requests.push({
-      id, timestamp: time, group: /^(?:group|auto)\//.test(requestedModel) ? requestedModel : '', requestedModel,
+      id, timestamp: time, group: /^(?:group|auto)\//.test(requestedModel) ? requestedModel : '', requestedModel, agent: text(row.agent),
       provider: text(row.provider), model: text(row.served || row.model), status: status(code, Boolean(ledger.final)),
       durationMs: positive(row.ms), ttftMs: positive(row.ttft_ms),
-      inputTokens: ledger.input, outputTokens: ledger.output,
+      inputTokens: ledger.input, outputTokens: ledger.output, ...requestCache(ledger.rows),
       fallback: null, attempts: [],
       ...(safeError(null, code) ? { error: safeError(null, code) } : {}),
     });

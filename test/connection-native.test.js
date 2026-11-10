@@ -47,7 +47,7 @@ test('native key input is masked and write-only; Test does not save and Save cle
   h.inputs[1].set_value('fixture-only-web-key');
   h.form.render({}); h.controls.get('connection-test').on_key_down({ key: 'enter' }, h.cx);
   await h.settle();
-  assert.equal(h.saved.length, 0); assert.match(h.form.message, /Connected/);
+  assert.equal(h.saved.length, 0); assert.match(h.form.message, /Connection verified/);
   assert.equal(JSON.parse(calls[1].options.body).key, 'fixture-only-web-key');
   assert.equal(calls[1].options.headers['X-Magpie-Config-Token'], metadata.token);
   h.form.render({}); h.controls.get('connection-save').on_click({}, h.cx); await h.settle();

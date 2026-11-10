@@ -39,7 +39,6 @@ test('trace delta merge uses seq, gateway identity, retained ids and hidden catc
 
 test('native dot waits for upstream done, returns on failure, retries and returns after success', async () => {
   const h = harness(), store = new TraceStore(), live = new LiveRouting();
-  live.group = { id: 'g', members: [] };
   let result = store.apply(frame(1, [route('request', [attempt()])]));
   live.ingest(store, result.play, h.cx);
   await h.advance(1500);
@@ -81,19 +80,55 @@ test('hide/reset cancels held requests and bounded concurrent flights do not lea
   assert.equal(live.dots.size, 0);
 });
 
-test('direct requests stay separate from routing groups and start before any model was selected', async () => {
+test('grouped and direct requests share the live diagram, including requests still selecting a model', async () => {
   const h = harness(), store = new TraceStore(), live = new LiveRouting();
-  live.group = { id: '@direct', direct: true, members: [] };
   let update = store.apply(frame(1, [{ ...route('direct'), group: '', groupRef: '' }, route('grouped', [attempt()])]));
   live.ingest(store, update.play, h.cx); await h.advance(1000);
-  assert.equal(live.dots.size, 1);
+  assert.equal(live.dots.size, 2);
   assert.equal(live.dots.get('direct').phase, 'selecting');
-  assert.equal(live.nodes.length, 0);
-  update = store.apply(frame(2, [{ ...route('direct', [attempt()]), group: '', groupRef: '' }], { ids: ['direct', 'grouped'] }));
+  assert.equal(live.dots.get('grouped').phase, 'held');
+  update = store.apply(frame(2, [{ ...route('direct', [attempt('b')]), group: '', groupRef: '' }], { ids: ['direct', 'grouped'] }));
   live.ingest(store, update.play, h.cx); await h.advance(1000);
   assert.equal(live.dots.get('direct').phase, 'held');
-  assert.equal(live.nodes[0].model, 'a');
+  assert.deepEqual(new Set(live.nodes.map(node => node.model)), new Set(['a', 'b']));
   live.stop(); await h.advance(100); await Promise.all(h.tasks);
+});
+
+test('new groups never interrupt ongoing routes or move their occupied model rows', async () => {
+  const h = harness(), store = new TraceStore(), live = new LiveRouting();
+  let update = store.apply(frame(1, [route('first', [attempt('a')])]));
+  live.ingest(store, update.play, h.cx); await h.advance(1000);
+  const original = live.dots.get('first'), position = live.position(original);
+  const other = { ...route('other', [attempt('b')]), group: 'another', groupRef: 'group/another', timestamp: '2026-11-09T12:01:00Z' };
+  update = store.apply(frame(2, [other], { ids: ['first', 'other'] }));
+  live.ingest(store, update.play, h.cx); await h.advance(1000);
+  assert.equal(live.dots.get('first'), original, 'same in-flight packet survives a newer routing group');
+  assert.equal(original.phase, 'held');
+  assert.deepEqual(live.position(original), position);
+  const history = Array.from({ length: 6 }, (_, i) => ({ ...route(`history-${i}`, [attempt(`model-${i}`, true, 'success')], true),
+    group: `group-${i}`, groupRef: `group/group-${i}`, timestamp: `2026-11-09T12:02:0${i}Z` }));
+  update = store.apply(frame(3, history, { ids: ['first', 'other', ...history.map(row => row.id)] }));
+  live.ingest(store, [], h.cx); await h.advance(1000);
+  assert.equal(live.nodes.length, 4);
+  assert.ok(live.nodes.some(node => node.model === 'b'));
+  assert.deepEqual(live.position(original), position, 'historical model churn cannot displace a held packet');
+  live.stop(); await h.advance(100); await Promise.all(h.tasks);
+});
+
+test('cancellation fades at the target and queued active requests take a freed slot without a new trace event', async () => {
+  const h = harness(), store = new TraceStore(), live = new LiveRouting();
+  let update = store.apply(frame(1, Array.from({ length: 5 }, (_, index) => route(String(index), [attempt()]))));
+  live.ingest(store, update.play, h.cx); await h.advance(1000);
+  assert.equal(live.dots.size, 4); assert.equal(live.overflow, 1);
+  update = store.apply(frame(2, [{ ...route('0', [attempt()], true), status: 'canceled' }], { ids: ['0', '1', '2', '3', '4'] }));
+  live.ingest(store, update.play, h.cx); await h.advance(200);
+  assert.equal(live.dots.get('0').phase, 'fade');
+  assert.equal(live.dots.get('0').outcome, 'canceled');
+  await h.advance(1000);
+  assert.equal(live.dots.has('0'), false);
+  assert.equal(live.dots.get('4').phase, 'held');
+  assert.equal(live.dots.size, 4);
+  live.stop(); await h.advance(1000); await Promise.all(h.tasks);
 });
 
 test('trace projection keeps lifecycle flags while dropping account identity and prompt/error contents', () => {

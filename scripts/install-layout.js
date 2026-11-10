@@ -30,10 +30,13 @@ export async function installLayout({ home = process.env.HERDR_APP_HOME || join(
   for (const suffix of ['dashboard', 'navigation']) {
     const target = join(destination, 'mods', `${name}-${suffix}`);
     await mkdir(target); // exclusive: a concurrent install must never overwrite a mod
-    for (const file of suffix === 'dashboard' ? ['main.js', 'config.js', 'routing.js', 'live-routing.js', 'usage.js', 'connection.js'] : ['main.js']) {
-      await cp(join(root, 'mods', `magpie-${suffix}`, file), join(target, file), { force: false, errorOnExist: true });
+    for (const file of suffix === 'dashboard' ? ['main.js', 'routing.js', 'live-routing.js', 'usage.js', 'connection.js', 'presentation.js', 'icons'] : ['main.js']) {
+      await cp(join(root, 'mods', `magpie-${suffix}`, file), join(target, file), { force: false, errorOnExist: true, recursive: true });
     }
-    if (suffix === 'dashboard') await writeFile(join(target, 'THIRD_PARTY_NOTICES.md'), await readFile(join(root, 'THIRD_PARTY_NOTICES.md')), { flag: 'wx' });
+    if (suffix === 'dashboard') {
+      await writeFile(join(target, 'config.js'), `export default ${JSON.stringify({ endpoint: url.href, modName: `${name}-dashboard`, motion: true })};\n`, { flag: 'wx' });
+      await writeFile(join(target, 'THIRD_PARTY_NOTICES.md'), await readFile(join(root, 'THIRD_PARTY_NOTICES.md')), { flag: 'wx' });
+    }
     await writeFile(join(target, 'mod.json'), '{"place":"none","focusable":true}\n', { flag: 'wx' });
   }
   await writeFile(targets[1], await readFile(join(root, 'layouts', 'magpie.svg')), { flag: 'wx' });

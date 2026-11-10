@@ -6,7 +6,11 @@ The original local gateway integration was verified against upstream commit `c63
 
 ## Configuration
 
-The native **Routing → Connection** form configures the Magpie Web origin, masked Web key and optional internal cookie port. GET `/api/connection` returns sanitized metadata and a process-local write token; POST `/api/connection/test` reads upstream without saving, and POST `/api/connection` atomically saves private local settings and swaps the source. Writes require a valid token, same-origin checks, JSON and the current revision. No Magpie route/account mutation is exposed. Saving cancels old trace waits and rejects stale in-flight responses. See [connection settings](connection.md).
+The native **Routing → Settings** form configures the Magpie Web base URL (including a reverse-proxy prefix such as `/mac/`), masked Web key and optional internal cookie port. GET `/api/connection` returns sanitized metadata and a process-local write token; POST `/api/connection/test` reads upstream without saving, and POST `/api/connection` atomically saves private local settings and swaps the source. Writes require a valid token, same-origin checks, JSON and the current revision. No Magpie route/account mutation is exposed. Saving cancels old trace waits and rejects stale in-flight responses. Blank keys are retained only for the same normalized origin and prefix. See [connection settings](connection.md).
+
+The bridge's `GET /api/allowances` separately reads vendor subscription allowances from `/api/usage/quotas` (Web) or `/v1/magpie/quotas` (gateway). A manual read sends `asked=1` on the Web GET; it never invokes quota refresh POSTs, spends resets, or performs check-ins. Projection preserves percentages, text-only windows, unlimited windows, balances and reset times; it strips account identities, raw errors and Magpie-derived capacity estimates. Usage displays these allowances; the aggregate token/fee API is presented as Cost.
+
+All production endpoints are live-only; `mode=demo` is rejected. Synthetic responses are test fixtures. Routing projections include `agent`, explicit cancellation and per-request cache measurements, while session IDs, prompts and account details remain excluded.
 
 Saved settings take precedence over the following optional environment defaults. The bridge reads its private settings on restart; `.env` is still supported as an initial fallback.
 

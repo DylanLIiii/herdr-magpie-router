@@ -15,6 +15,19 @@ test('credentials stay server-side and redirects are forbidden', async () => {
   await assert.rejects(read('//attacker.example/steal'), /其他上游/);
 });
 
+test('proxy paths keep the API below their prefix and reject escaping it', async () => {
+  for (const baseUrl of ['https://proxy.example/mac', 'https://proxy.example/mac/']) {
+    const calls = [];
+    const read = createReader({ baseUrl, fetchImpl: async url => { calls.push(String(url)); return Response.json({ ok: true }); } });
+    await read('/api/usage?period=7d');
+    assert.deepEqual(calls, ['https://proxy.example/mac/api/usage?period=7d']);
+    for (const path of ['//other.example/steal', 'https://other.example/steal', '/../other/api', '/%2e%2e/api', '/\\\\other.example/steal']) {
+      await assert.rejects(read(path), /其他上游/);
+    }
+    assert.equal(calls.length, 1);
+  }
+});
+
 test('upstream errors never disclose bodies or credentials', async () => {
   const read = createReader({ baseUrl: 'http://localhost:3425', fetchImpl: async () => new Response('secret-test-value', { status: 401 }) });
   await assert.rejects(read('/api/status'), error => {

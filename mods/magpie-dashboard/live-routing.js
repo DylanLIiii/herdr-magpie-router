@@ -1,6 +1,6 @@
 // State transitions adapted from Magpie's Routing client: poll(), play(),
 // stopPlays() and home(). See THIRD_PARTY_NOTICES.md for MIT attribution.
-import { destinationKey, routeNodes, rowY } from './routing.js';
+import { destinationKey, rowY } from './routing.js';
 
 export class TraceStore {
   constructor() { this.clear(); }
@@ -27,30 +27,36 @@ export class TraceStore {
   }
 }
 
-const belongs = (route, group) => !group ? true : group.direct ? !route.group && !route.groupRef
-  : [group.id, group.ref, `group/${group.id}`, `auto/${group.id}`].filter(Boolean).includes(route.group)
-    || [group.id, group.ref, `group/${group.id}`, `auto/${group.id}`].filter(Boolean).includes(route.groupRef)
-    || [group.ref, `group/${group.id}`, `auto/${group.id}`].filter(Boolean).includes(route.requestedModel);
-const eventsOf = routes => routes.flatMap(route => route.attempts.map(attempt => ({ ...attempt, requestId: route.id })));
 const modelTarget = attempt => attempt && { ...attempt, model: attempt.model || attempt.served };
+const validTarget = target => Boolean(target?.provider && target?.model);
 
 export class LiveRouting {
   constructor(canRun = () => true) {
     this.canRun = canRun; this.routes = new Map(); this.dots = new Map(); this.nodes = []; this.total = 0;
-    this.group = null; this.generation = 0; this.waiters = new Set(); this.latest = null; this.overflow = 0;
+    this.generation = 0; this.waiters = new Set(); this.latest = null; this.overflow = 0; this.lanes = [];
   }
   wake() { for (const resolve of this.waiters) resolve(); this.waiters.clear(); }
   stop() { this.generation++; this.dots.clear(); this.wake(); }
-  setGroup(group, cx) { this.stop(); this.group = group; this.project(); cx?.notify(); }
   project() {
-    const routes = [...this.routes.values()].filter(route => belongs(route, this.group)).sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
-    const events = eventsOf(routes.slice(0, 12).reverse());
-    const live = [...this.dots.values()].flatMap(dot => {
-      const attempt = this.routes.get(dot.id)?.attempts[dot.attempt];
-      return attempt ? [modelTarget(attempt)] : [];
-    });
-    const flat = routeNodes(this.group, [...events, ...live]);
-    this.nodes = flat.nodes; this.total = flat.all; this.latest = routes[0] || null;
+    const routes = [...this.routes.values()].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+    const observed = routes.flatMap(route => route.attempts.slice().reverse().map(modelTarget)).filter(validTarget);
+    const targets = new Map(observed.map(target => [destinationKey(target), { ...target, key: destinationKey(target) }]));
+    const flying = [...this.dots.values()].map(dot => modelTarget(this.routes.get(dot.id)?.attempts[dot.attempt])).filter(validTarget);
+    const pending = routes.filter(route => !route.done).map(route => modelTarget(route.attempts.at(-1))).filter(validTarget);
+    const chosen = [...new Set([...flying, ...pending, ...observed].map(destinationKey))].slice(0, 4);
+    // Keep occupied rows stable when another group starts a request. Only
+    // unused slots are replaced; every flying packet keeps its actual target.
+    const slots = this.nodes.slice(0, chosen.length).map(node => chosen.includes(node.key) ? targets.get(node.key) : null);
+    const remaining = chosen.filter(key => !slots.some(node => node?.key === key));
+    for (let index = 0; index < chosen.length; index++) if (!slots[index]) slots[index] = targets.get(remaining.shift());
+    this.nodes = slots; this.total = targets.size; this.latest = routes[0] || null;
+    this.overflow = routes.filter(route => !route.done && !this.dots.has(route.id)).length;
+    const activeIds = [...new Set([...this.dots.keys(), ...routes.filter(route => !route.done).map(route => route.id)])];
+    const ids = activeIds.length ? activeIds.slice(0, 4) : routes.slice(0, 2).map(route => route.id);
+    const lanes = this.lanes.slice(0, ids.length).map(route => ids.includes(route.id) ? this.routes.get(route.id) : null);
+    const extra = ids.filter(id => !lanes.some(route => route?.id === id));
+    for (let index = 0; index < ids.length; index++) if (!lanes[index]) lanes[index] = this.routes.get(extra.shift());
+    this.lanes = lanes;
   }
   ingest(store, play, cx, { animate = true, reset = false } = {}) {
     if (reset) this.stop();
@@ -58,11 +64,12 @@ export class LiveRouting {
     for (const id of this.dots.keys()) if (!this.routes.has(id)) this.dots.delete(id);
     this.project(); this.wake();
     if (animate && this.canRun()) {
-      const candidates = play.filter(id => this.routes.has(id) && belongs(this.routes.get(id), this.group) && !this.dots.has(id));
+      const candidates = [...new Set([...play, ...[...this.routes.values()].filter(route => !route.done).map(route => route.id)])]
+        .filter(id => this.routes.has(id) && !this.dots.has(id));
       const room = Math.max(0, 4 - this.dots.size);
-      this.overflow = Math.max(0, candidates.length - room);
-      if (room) for (const id of candidates.slice(-room)) this.start(id, cx);
+      if (room) for (const id of candidates.slice(0, room)) this.start(id, cx);
     }
+    this.project();
   }
   position(dot) {
     const attempt = this.routes.get(dot.id)?.attempts[dot.attempt];
@@ -93,15 +100,16 @@ export class LiveRouting {
           await phase('to-rail', 240);
           await phase('to-model', 180);
           await phase('held', 0);
-          await this.until(() => !route() || route().attempts[index]?.done, valid);
+          await this.until(() => !route() || route().attempts[index]?.done || route().done && route().status === 'canceled', valid);
           if (!valid() || !route()) break;
-          dot.outcome = route().attempts[index].status;
+          dot.outcome = route().status === 'canceled' ? 'canceled' : route().attempts[index].status;
           await phase('result', 180);
+          if (dot.outcome === 'canceled') { await phase('fade', 180); break; }
           if (dot.outcome === 'success') {
             await this.until(() => !route() || route().done, valid);
             if (!valid() || !route()) break;
             await phase('return-rail', 180); await phase('home', 240);
-            break;
+            await phase('fade', 180); break;
           }
           // An unsuccessful attempt returns to the router. It waits there for
           // the next actual try; no timer pretends that a fallback has begun.
@@ -110,7 +118,15 @@ export class LiveRouting {
           await phase('selecting', 0);
         }
       } finally {
-        if (this.dots.get(id) === dot) { this.dots.delete(id); current.notify(); }
+        if (this.dots.get(id) === dot) {
+          this.dots.delete(id); this.project(); current.notify();
+          // A queued active request gets a slot immediately, even if the next
+          // upstream long poll has no new event for another 25 seconds.
+          if (generation === this.generation && this.canRun()) {
+            const next = [...this.routes.values()].find(row => !row.done && !this.dots.has(row.id));
+            if (next) this.start(next.id, current);
+          }
+        }
       }
     });
   }

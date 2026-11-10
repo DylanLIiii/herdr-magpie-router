@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { SourceError } from './upstream.js';
+import { requestCache } from './request-metrics.js';
 
 const text = value => typeof value === 'string' ? value.slice(0, 180) : '';
 const numeric = value => Number.isFinite(value) && value >= 0 ? value : null;
@@ -27,9 +28,9 @@ export function projectTrace(data) {
       requestedModel: text(route.model), group: text(route.group?.id), groupRef: text(route.group?.ref),
       groupName: text(route.group?.name), strategy: text(route.group?.routing),
       provider: last?.provider || text(route.provider), model: last?.served || last?.model || text(route.model),
-      done: route.done === true, status: outcome(route.done === true, route.status || last?.httpStatus, route.error),
+      done: route.done === true, status: route.canceled === true ? 'canceled' : outcome(route.done === true, route.status || last?.httpStatus, route.error),
       durationMs: numeric(route.ms), ttftMs: numeric(route.ttft), inputTokens: sum(usage, 'in'), outputTokens: sum(usage, 'out'),
-      attempts, fallback: attempts.length ? attempts.some((attempt, index) => attempt.status === 'error' && index < attempts.length - 1) : null };
+      ...requestCache(usage), attempts, fallback: attempts.length ? attempts.some((attempt, index) => attempt.status === 'error' && index < attempts.length - 1) : null };
   }).filter(route => route.id !== 'undefined');
   return { seq: data.seq, epoch, mine: data.mine !== false, now: text(data.now), routes,
     ids: Array.isArray(data.ids) ? data.ids.slice(-500).map(String) : null,

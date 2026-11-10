@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { demoSnapshot } from '../server/demo.js';
+import { demoSnapshot } from './fixtures/demo.js';
 
 async function host(fetchImpl, clock = Date) {
   let source = await readFile(new URL('../mods/magpie-router/main.js', import.meta.url), 'utf8');
@@ -20,7 +20,7 @@ async function host(fetchImpl, clock = Date) {
   return { mod, cx, settle, timers };
 }
 
-test('native adapter switches modes serially and rejects stale responses', async () => {
+test('legacy native adapter ignores removed demo mode and serializes refresh', async () => {
   let release;
   const calls = [];
   const fake = async url => {
@@ -30,11 +30,13 @@ test('native adapter switches modes serially and rejects stale responses', async
   };
   const { mod, cx, settle } = await host(fake);
   mod.switchMode('demo', cx);
+  mod.refresh(cx);
+  assert.equal(mod.mode, 'live');
   assert.equal(calls.length, 1);
   release();
   await settle();
   assert.equal(calls.length, 2);
-  assert.equal(mod.snapshot.mode, 'demo');
+  assert.equal(mod.snapshot.mode, 'live');
   assert.equal(mod.requests().length, 16);
   assert.ok(mod.render(cx));
 });

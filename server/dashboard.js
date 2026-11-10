@@ -1,7 +1,8 @@
 import { MagpieSource } from './magpie.js';
-import { createReader, SourceError } from './upstream.js';
+import { createReader, serviceAddress, SourceError } from './upstream.js';
 import { normalizeSnapshot } from './normalize.js';
 import { readTrace } from './trace.js';
+import { projectAllowances } from './allowances.js';
 
 export const PERIODS = ['today', '7d', '30d', 'all'];
 const list = value => Array.isArray(value) ? value.filter(item => item && typeof item === 'object') : [];
@@ -49,11 +50,9 @@ export class DashboardSource {
     this.cache = new Map();
     if (!this.configured) return;
     const address = env.MAGPIE_WEB_URL || env.MAGPIE_URL;
-    // createReader validates the origin before we construct any credential headers.
-    createReader({ baseUrl: address, fetchImpl });
-    const url = new URL(address);
-    if (url.pathname !== '/') throw new SourceError('Magpie service URL must be an origin without a path');
-    this.service = { url: url.origin, kind: this.web ? 'web' : 'gateway' };
+    // Validate and retain the proxy prefix before constructing credential headers.
+    const normalized = serviceAddress(address), url = new URL(normalized);
+    this.service = { url: normalized, kind: this.web ? 'web' : 'gateway' };
     let headers = {};
     if (this.web) {
       const key = env.MAGPIE_WEB_KEY || '';
@@ -116,6 +115,14 @@ export class DashboardSource {
   trace(options = {}) {
     if (!this.read) throw new SourceError('Configure the Magpie service before connecting live routing.');
     return readTrace(this.read, { ...options, web: this.web });
+  }
+
+  allowances(asked = false) {
+    if (!this.read) throw new SourceError('Open Settings to connect your Magpie service.');
+    return this.cached(asked ? 'allowances:asked' : 'allowances', asked ? 3000 : 15000, async () => {
+      const value = await this.read(this.web ? `/api/usage/quotas${asked ? '?asked=1' : ''}` : '/v1/magpie/quotas', { timeout: 20000 });
+      return projectAllowances(this.web ? value : value?.data);
+    });
   }
 
   async dashboard(period = 'today', zone = '') {

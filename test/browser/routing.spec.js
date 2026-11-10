@@ -1,11 +1,15 @@
 import { test, expect } from '@playwright/test';
+import { demoSnapshot } from '../fixtures/demo.js';
+const fixture = page => page.route('**/api/snapshot*', route => route.fulfill({ contentType: 'application/json',
+  body: JSON.stringify({ ...demoSnapshot(), mode: 'live', source: { label: 'Test fixture', detail: 'Synthetic data supplied only by the test' } }) }));
 
-test('demo supports route inspection, filtering, navigation, export and pause', async ({ page }) => {
+test('route inspection, filtering, navigation and export work without Demo or Pause', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/?mode=demo');
+  await fixture(page);
+  await page.goto('/');
   await expect(page.locator('#metric-requests')).toHaveText('64');
-  await expect(page.locator('#source-badge')).toHaveText('演示数据');
+  await expect(page.locator('#source-badge')).toHaveText('实时数据');
   await expect(page.locator('#route-diagram svg')).toBeVisible();
   await page.locator('#status-filter').selectOption('fallback');
   await expect(page.locator('#request-count')).toHaveText('5 条');
@@ -15,14 +19,14 @@ test('demo supports route inspection, filtering, navigation, export and pause', 
   await expect(page.locator('#route-diagram .attempt')).toHaveCount(2);
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#export').click();
-  expect((await downloadPromise).suggestedFilename()).toMatch(/magpie-requests-demo/);
+  expect((await downloadPromise).suggestedFilename()).toMatch(/magpie-requests-live/);
   await page.locator('#search').fill('no-such-model');
   await expect(page.locator('#requests-empty')).toContainText('没有匹配的请求');
   await expect(page.locator('#export')).toBeDisabled();
   await page.locator('#clear-filters').click();
   await expect(page.locator('#request-count')).toHaveText('64 条');
-  await page.locator('#pause').click();
-  await expect(page.locator('#pause')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#pause')).toHaveCount(0);
+  await expect(page.locator('#mode')).toHaveCount(0);
   await page.locator('[data-view=groups]').click();
   await expect(page.locator('#groups-section')).toBeVisible();
   await expect(page.locator('.group-item')).toHaveCount(3);
@@ -56,7 +60,8 @@ test('upstream strings cannot inject HTML into requests or graph', async ({ page
 for (const [name, width, height, query] of [['desktop', 1440, 1000, ''], ['mobile', 390, 844, ''], ['embed', 600, 850, '&embed=1']]) {
   test(`${name} fits viewport and keyboard navigation`, async ({ page }) => {
     await page.setViewportSize({ width, height });
-    await page.goto(`/?mode=demo${query}`);
+    await fixture(page);
+    await page.goto(`/?mode=live${query}`);
     await expect(page.locator('#metric-requests')).toHaveText('64');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     expect(overflow).toBe(false);

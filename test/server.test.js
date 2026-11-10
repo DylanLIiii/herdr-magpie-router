@@ -2,7 +2,7 @@ import { test, after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { request } from 'node:http';
 import { createApp } from '../server/index.js';
-import { demoSnapshot } from '../server/demo.js';
+import { demoSnapshot } from './fixtures/demo.js';
 
 let app;
 let base;
@@ -26,16 +26,13 @@ function get(path, headers = {}, method = 'GET') {
   });
 }
 
-test('demo returns synthetic data and never calls upstream', async () => {
-  const response = await get('/api/snapshot');
-  assert.equal(response.status, 200);
-  assert.equal(response.json().mode, 'demo');
-  assert.match(response.json().source.detail, /合成数据/);
+test('production endpoints reject the removed demo mode', async () => {
+  for (const path of ['snapshot', 'dashboard', 'routing']) assert.equal((await get(`/api/${path}?mode=demo`)).status, 400);
   assert.equal(liveCalls, 0);
 });
 
-test('live is explicitly selected and cannot become demo on failure', async () => {
-  const response = await get('/api/snapshot?mode=live');
+test('live service data is the default', async () => {
+  const response = await get('/api/snapshot');
   assert.equal(response.json().mode, 'live');
   assert.equal(liveCalls, 1);
 });
