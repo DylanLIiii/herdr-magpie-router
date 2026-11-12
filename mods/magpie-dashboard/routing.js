@@ -11,3 +11,4 @@ export const strategyInfo = value => {
 };
 export const destinationKey = value => `${value.provider}\u0000${value.model}`;
 export const rowY = index => 42 + index * 36;
+export { laneDynamics } from './presentation.js';

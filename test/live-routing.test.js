@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { TraceStore, LiveRouting } from '../mods/magpie-dashboard/live-routing.js';
 import { projectTrace, readTrace } from '../server/trace.js';
 import { cacheHit, tokenTotal, usageBars } from '../mods/magpie-dashboard/usage.js';
+import { needsAttention } from '../mods/magpie-dashboard/presentation.js';
 
 const now = '2026-11-09T12:00:00Z';
 const route = (id, attempts = [], done = false) => ({ id, timestamp: now, group: 'g', groupRef: 'group/g', done, attempts, status: done ? 'success' : 'pending' });
@@ -69,6 +70,19 @@ test('upstream attempt completion and route completion are separate gates', asyn
   update = store.apply(frame(2, [route('r', [attempt('a', true, 'success')], true)]));
   live.ingest(store, update.play, h.cx); await h.advance(1000);
   assert.equal(live.dots.size, 0);
+});
+
+test('a terminal native request releases a held packet even without an attempt terminal frame', async () => {
+  for (const status of ['success', 'error', 'canceled']) {
+    const h = harness(), store = new TraceStore(), live = new LiveRouting();
+    let update = store.apply(frame(1, [route('r', [attempt()])]));
+    live.ingest(store, update.play, h.cx); await h.advance(1000);
+    assert.equal(live.dots.get('r').phase, 'held');
+    update = store.apply(frame(2, [{ ...route('r', [attempt()], true), status }]));
+    live.ingest(store, update.play, h.cx); await h.advance(1500);
+    assert.equal(live.dots.size, 0, `${status} must release the held packet`);
+    await Promise.all(h.tasks);
+  }
 });
 
 test('hide/reset cancels held requests and bounded concurrent flights do not leave orphan dots', async () => {
@@ -140,6 +154,9 @@ test('trace projection keeps lifecycle flags while dropping account identity and
   assert.equal(data.routes[0].attempts[0].retryable, true);
   assert.equal(data.routes[0].attempts[1].done, false);
   assert.equal(data.routes[0].attempts[0].status, 'error');
+  assert.equal(data.routes[0].status, 'pending');
+  assert.equal(data.routes[0].fallback, true, 'real projection marks the in-flight retry as fallback');
+  assert.equal(needsAttention(data.routes[0]), false, 'pending fallback is not yet a recovered request');
   assert.doesNotMatch(JSON.stringify(data), /private/);
   assert.deepEqual(data.ids, ['9']);
 });

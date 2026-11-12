@@ -38,7 +38,8 @@
         <div><span>请求总数</span><strong id="metric-requests">—</strong><small>次</small></div><div><span>成功率</span><strong id="metric-success">—</strong></div><div><span>响应耗时中位数</span><strong id="metric-duration">—</strong><small id="metric-duration-unit"></small></div><div><span>回退请求</span><strong id="metric-fallback">—</strong><small>次</small></div>
       </section>
       <section id="route-section" class="surface route-surface" aria-labelledby="route-heading">
-        <div class="section-heading"><div><h2 id="route-heading">路由流向</h2><p id="route-caption">选择一条请求，追踪它的完整路径</p></div><span class="live-indicator"><i></i> 请求路径</span></div>
+        <div class="section-heading"><div><h2 id="route-heading">路由流向</h2><p id="route-caption">选择一条请求，追踪它的完整路径</p></div><div class="route-controls"><span id="route-active" class="live-indicator" role="status"><i></i>0 活跃</span><span id="route-queued" class="queue-indicator" hidden></span><button id="motion-toggle" class="motion-toggle" type="button" aria-pressed="true">动态效果：开</button></div></div>
+        <div id="route-lanes" class="route-lanes" aria-label="在途请求" hidden></div>
         <div id="route-diagram" class="route-diagram" aria-live="polite"><div class="empty-state">正在读取路由数据…</div></div>
         <div class="graph-footer"><div class="legend"><span><i class="legend-line selected"></i>选中路径</span><span><i class="legend-line fallback"></i>回退尝试</span><span><i class="legend-line"></i>其他请求</span></div><span id="graph-note">路径来自当前请求记录</span></div>
       </section>

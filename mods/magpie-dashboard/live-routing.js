@@ -91,29 +91,30 @@ export class LiveRouting {
       const wait = ms => new Promise(resolve => current.timer.after(ms, () => resolve()));
       const phase = async (name, ms) => { if (!valid()) return; dot.phase = name; current.notify(); if (ms) await wait(ms); };
       try {
-        await phase('selecting', 180);
+        await phase('selecting', 170);
         for (let index = 0; valid(); index++) {
           await this.until(() => !route() || route().attempts.length > index || route().done, valid);
           if (!valid() || !route() || index >= route().attempts.length) break;
           dot.attempt = index; dot.outcome = 'pending'; this.project();
-          // Arrival waits at the model until the *same* upstream attempt is done.
-          await phase('to-rail', 240);
-          await phase('to-model', 180);
+          // Arrival holds until the attempt or request reaches a real terminal frame.
+          await phase('to-rail', 220);
+          await phase('to-model', 190);
           await phase('held', 0);
-          await this.until(() => !route() || route().attempts[index]?.done || route().done && route().status === 'canceled', valid);
+          await this.until(() => !route() || route().attempts[index]?.done || route().done, valid);
           if (!valid() || !route()) break;
-          dot.outcome = route().status === 'canceled' ? 'canceled' : route().attempts[index].status;
-          await phase('result', 180);
+          const finishedAttempt = route().attempts[index];
+          dot.outcome = route().status === 'canceled' ? 'canceled' : finishedAttempt?.done ? finishedAttempt.status : ['success', 'error'].includes(route().status) ? route().status : 'error';
+          await phase('result', 170);
           if (dot.outcome === 'canceled') { await phase('fade', 180); break; }
           if (dot.outcome === 'success') {
             await this.until(() => !route() || route().done, valid);
             if (!valid() || !route()) break;
-            await phase('return-rail', 180); await phase('home', 240);
+            await phase('return-rail', 180); await phase('home', 220);
             await phase('fade', 180); break;
           }
           // An unsuccessful attempt returns to the router. It waits there for
           // the next actual try; no timer pretends that a fallback has begun.
-          await phase('return-rail', 180); await phase('home', 240);
+          await phase('return-rail', 180); await phase('home', 220);
           if (!route() || route().done && index + 1 >= route().attempts.length) break;
           await phase('selecting', 0);
         }

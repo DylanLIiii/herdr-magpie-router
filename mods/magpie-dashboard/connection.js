@@ -88,14 +88,16 @@ export class ConnectionForm {
   render(t) {
     const text = (value, color = t.muted, size = 12) => div().min_w(0).text_size(size).text_color(color).child(value);
     const button = (id, title, action, disabled = false, primary = false) => div().id(id).role('button').tab_index(disabled ? -1 : 0)
-      .h(32).px(10).rounded(7).flex().items_center().text_size(13)
+      .h(32).px(10).rounded(6).flex().items_center().text_size(13).font_medium()
       .bg(primary && !disabled ? t.solid : t.raised).text_color(disabled ? t.dim : primary ? t.solid_foreground : t.foreground)
-      .when(!disabled, el => el.cursor_pointer().hover(s => s.bg(t.hover)).focus(s => s.bg(t.selected).text_color(t.accent)))
+      .border_1().border_color(primary && !disabled ? t.solid : t.border)
+      .when(!disabled, el => el.cursor_pointer().hover(s => s.bg(primary ? t.solid : t.hover).opacity(primary ? 0.88 : 1))
+        .focus(s => s.bg(t.selected).text_color(t.accent).border_color(t.accent)))
       .on_click((_event, cx) => { if (!disabled) action(cx); })
       .on_key_down((event, cx) => { if (event.key === 'enter' || event.key === 'space') { cx.stop_propagation(); if (!disabled) action(cx); } })
       .child(title);
     const field = (name, label, input, hint) => v_flex().gap(6).min_w(0)
-      .child(text(label, t.foreground))
+      .child(text(label, t.foreground).font_medium())
       .child(div().id(`connection-${name}`).min_w(0).on_mouse_down('left', (_event, cx) => cx.stop_propagation())
         .child(Input.new(input).disabled(Boolean(this.busy)).h(36).w_full().px(10).rounded(7).border_1().border_color(this.focused === name ? t.accent : t.input)
           .bg(t.background).text_color(t.foreground).text_size(13).accessibility_label(label)))
@@ -113,9 +115,10 @@ export class ConnectionForm {
       .child(button('connection-test', this.busy === 'test' ? 'Testing…' : 'Test connection', cx => this.submit(false, cx), Boolean(this.busy || !this.info)))
       .child(button('connection-save', this.busy === 'save' ? 'Saving…' : 'Save & connect', cx => this.submit(true, cx), Boolean(this.busy || !this.info), true)))
       .child(text('Key stored privately on this computer', t.muted, 12));
-    if (this.preferences.motion) body.child(div().h(1).bg(t.border)).child(h_flex().items_center().gap(12)
-      .child(text('Routing motion', t.foreground, 13).flex_1())
-      .child(button('route-motion', this.preferences.motion() ? 'On' : 'Off', cx => this.preferences.toggleMotion(cx))));
+    if (this.preferences.motion) body.child(v_flex().id('motion-preference').p(12).rounded(8).bg(t.surface).border_1().border_color(t.border)
+      .child(h_flex().items_center().gap(12)
+        .child(text('Routing motion', t.foreground, 13).font_medium().flex_1())
+        .child(button('route-motion', this.preferences.motion() ? 'On' : 'Off', cx => this.preferences.toggleMotion(cx)))));
     if (!this.info && !this.busy) body.child(button('connection-retry', 'Retry', cx => this.open(cx)));
     return v_flex().id('magpie-connection').size_full().min_w(0).min_h(0).rounded(10).overflow_hidden().bg(t.background)
       .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
